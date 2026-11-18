@@ -33,6 +33,10 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  MAX_CHAT_SHORTCUTS,
+  parseChatEntry,
+} from '@/features/chat/lib/chat-links'
 
 import { SettingsForm } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
@@ -53,28 +57,16 @@ const createChatSchema = (t: (key: string) => string) =>
           })
           return
         }
-        for (const item of parsed) {
-          if (
-            item === null ||
-            typeof item !== 'object' ||
-            Array.isArray(item)
-          ) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: t(
-                'Each item must be an object with a single key-value pair.'
-              ),
-            })
-            return
-          }
-          const entries = Object.entries(item)
-          if (entries.length !== 1) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: t('Each item must have exactly one key-value pair.'),
-            })
-            return
-          }
+        const entries = parsed.map(parseChatEntry)
+        if (entries.some((entry) => !entry)) {
+          ctx.addIssue({ code: 'custom', message: t('Invalid chat preset.') })
+        } else if (
+          entries.filter((entry) => entry?.shortcut).length > MAX_CHAT_SHORTCUTS
+        ) {
+          ctx.addIssue({
+            code: 'custom',
+            message: t('Select up to 3 shortcuts.'),
+          })
         }
       } catch {
         ctx.addIssue({
@@ -178,17 +170,13 @@ export function ChatSettingsSection({
                         name={field.name}
                         onBlur={field.onBlur}
                         textareaRef={field.ref}
-                        placeholder={t(
-                          '[{"ChatGPT":"https://chat.openai.com"},{"Lobe Chat":"https://chat-preview.lobehub.com/?settings={...}"}]'
-                        )}
+                        placeholder='[{"name":"BaoCode","url":"https://baocode.dev","shortcut":true,"icon":""}]'
                         heightClassName='h-72 min-h-72 max-h-72'
                         aria-invalid={Boolean(form.formState.errors.Chats)}
                       />
                     </FormControl>
                     <FormDescription>
-                      {t(
-                        'Array of chat client presets. Each item is an object with one key-value pair: client name and its URL.'
-                      )}
+                      {t('Chat preset fields: name, url, shortcut, icon.')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

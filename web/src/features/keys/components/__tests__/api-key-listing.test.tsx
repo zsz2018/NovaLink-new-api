@@ -349,6 +349,34 @@ async function renderKeysPage(status = 1, overrides: Partial<ApiKey> = {}) {
   return { post, put }
 }
 
+it('shows only the first three selected presets in JSON order and opens a plain link without fetching the key', async () => {
+  const chats = [
+    { Legacy: 'https://legacy.example' },
+    ...['B', 'A', 'D', 'C'].map((name) => ({
+      name,
+      url: 'https://client.example/',
+      shortcut: true,
+      icon: '',
+    })),
+  ]
+  localStorage.setItem('status', JSON.stringify({ chats }))
+  const open = vi.spyOn(window, 'open').mockReturnValue(null)
+  const { post } = await renderKeysPage()
+  const buttons = screen.getAllByRole('button', { name: /^Import to / })
+  expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+    'Import to B',
+    'Import to A',
+    'Import to D',
+  ])
+  await userEvent.setup().click(buttons[0])
+  expect(open).toHaveBeenCalledWith(
+    'https://client.example/',
+    '_blank',
+    expect.stringContaining('noopener')
+  )
+  expect(post).not.toHaveBeenCalled()
+})
+
 it('combines creation and last use while keeping expiry, models and IP restrictions separate', async () => {
   await renderKeysPage()
   for (const name of ['Name', 'API Key', 'Group', 'Models', 'IP Restriction']) {

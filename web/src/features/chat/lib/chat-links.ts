@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { z } from 'zod'
+
 import { API_KEY_STATUS } from '@/features/keys/constants'
 
 export type ChatLinkType = 'web' | 'custom-protocol' | 'fluent'
@@ -25,7 +27,11 @@ export type ChatPreset = {
   name: string
   url: string
   type: ChatLinkType
+  shortcut: boolean
+  icon: string
 }
+
+export const MAX_CHAT_SHORTCUTS = 3
 
 export type RawChatConfig =
   | string
@@ -94,6 +100,24 @@ export function chatLinkRequiresApiKey(url: string): boolean {
   )
 }
 
+const chatEntrySchema = z
+  .object({
+    name: z.string().trim().min(1),
+    url: z.string().trim().min(1),
+    shortcut: z.boolean().default(false),
+    icon: z.string().trim().default(''),
+  })
+  .strict()
+
+export function parseChatEntry(entry: unknown) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null
+  const entries = Object.entries(entry)
+  const value =
+    entries.length === 1 ? { name: entries[0][0], url: entries[0][1] } : entry
+  const parsed = chatEntrySchema.safeParse(value)
+  return parsed.success ? parsed.data : null
+}
+
 export function parseChatConfig(raw: RawChatConfig): ChatPreset[] {
   let parsed: unknown = raw
 
@@ -109,35 +133,12 @@ export function parseChatConfig(raw: RawChatConfig): ChatPreset[] {
     return []
   }
 
-  return parsed
-    .map((entry, index) => {
-      if (
-        !entry ||
-        typeof entry !== 'object' ||
-        Array.isArray(entry) ||
-        Object.keys(entry).length !== 1
-      ) {
-        return null
-      }
-
-      const [name, value] = Object.entries(entry)[0]
-      if (typeof value !== 'string' || typeof name !== 'string') {
-        return null
-      }
-
-      const url = value.trim()
-      if (!url) {
-        return null
-      }
-
-      return {
-        id: String(index),
-        name,
-        url,
-        type: detectChatLinkType(url),
-      } satisfies ChatPreset
-    })
-    .filter((item): item is ChatPreset => item !== null)
+  return parsed.flatMap((entry, index) => {
+    const preset = parseChatEntry(entry)
+    return preset
+      ? [{ ...preset, id: String(index), type: detectChatLinkType(preset.url) }]
+      : []
+  })
 }
 
 function replaceToken(source: string, token: string, value: string) {

@@ -23,18 +23,22 @@ import { useTranslation } from 'react-i18next'
 import { StaticDataTable } from '@/components/data-table/static/static-data-table'
 import { StaticRowActions } from '@/components/data-table/static/static-row-actions'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { ChatPresetIcon } from '@/features/chat/components/chat-preset-icon'
+import {
+  MAX_CHAT_SHORTCUTS,
+  parseChatConfig,
+  type ChatPreset,
+} from '@/features/chat/lib/chat-links'
 
-import { safeJsonParseWithValidation } from '../utils/json-parser'
-import { isArray } from '../utils/json-validators'
+import { safeJsonParse } from '../utils/json-parser'
 import { ChatDialog, type ChatEntryData } from './chat-dialog'
 
 type ChatSettingsVisualEditorProps = {
   value: string
   onChange: (value: string) => void
 }
-
-type ChatEntry = ChatEntryData
 
 export function ChatSettingsVisualEditor({
   value,
@@ -43,29 +47,18 @@ export function ChatSettingsVisualEditor({
   const { t } = useTranslation()
   const [searchText, setSearchText] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editData, setEditData] = useState<ChatEntry | null>(null)
+  const [editData, setEditData] = useState<ChatPreset | null>(null)
 
-  const chats = useMemo(() => {
-    const parsed = safeJsonParseWithValidation<unknown[]>(value, {
-      fallback: [],
-      validator: isArray,
-      validatorMessage: 'Chats must be a JSON array',
-      context: 'chats',
-    })
-
-    return parsed
-      .map((item) => {
-        if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
-          const entries = Object.entries(item)
-          if (entries.length === 1) {
-            const [name, url] = entries[0]
-            return { name, url: String(url) }
-          }
-        }
-        return null
-      })
-      .filter((item): item is ChatEntry => item !== null)
-  }, [value])
+  const entries = useMemo(
+    () => safeJsonParse<unknown>(value || '[]', { silent: true }),
+    [value]
+  )
+  const chats = useMemo(
+    () => (Array.isArray(entries) ? parseChatConfig(entries) : []),
+    [entries]
+  )
+  const atLimit =
+    chats.filter((chat) => chat.shortcut).length >= MAX_CHAT_SHORTCUTS
 
   const filteredChats = useMemo(() => {
     if (!searchText) return chats
@@ -77,47 +70,16 @@ export function ChatSettingsVisualEditor({
     )
   }, [chats, searchText])
 
-  const handleSave = (data: ChatEntryData) => {
-    const chatsArray = safeJsonParseWithValidation<unknown[]>(value, {
-      fallback: [],
-      validator: isArray,
-      silent: true,
-    })
-
-    let updatedArray = [...chatsArray]
-
-    if (editData) {
-      updatedArray = updatedArray.filter((item) => {
-        if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
-          return !Object.keys(item).includes(editData.name)
-        }
-        return true
-      })
-    }
-
-    updatedArray.push({ [data.name]: data.url })
-
-    onChange(JSON.stringify(updatedArray, null, 2))
+  function updateEntry(id: string | undefined, data?: ChatEntryData) {
+    if (!Array.isArray(entries)) return
+    const updated = [...entries]
+    if (id === undefined) updated.push(data)
+    else if (!data) updated.splice(Number(id), 1)
+    else updated[Number(id)] = data
+    onChange(JSON.stringify(updated, null, 2))
   }
 
-  const handleDelete = (name: string) => {
-    const chatsArray = safeJsonParseWithValidation<unknown[]>(value, {
-      fallback: [],
-      validator: isArray,
-      silent: true,
-    })
-
-    const updatedArray = chatsArray.filter((item) => {
-      if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
-        return !Object.keys(item).includes(name)
-      }
-      return true
-    })
-
-    onChange(JSON.stringify(updatedArray, null, 2))
-  }
-
-  const handleEdit = (chat: ChatEntry) => {
+  const handleEdit = (chat: ChatPreset) => {
     setEditData(chat)
     setDialogOpen(true)
   }
@@ -139,7 +101,11 @@ export function ChatSettingsVisualEditor({
             className='pl-9'
           />
         </div>
-        <Button onClick={handleAdd}>
+        <Button
+          type='button'
+          onClick={handleAdd}
+          disabled={!Array.isArray(entries)}
+        >
           <Plus className='mr-2 h-4 w-4' />
           {t('Add chat preset')}
         </Button>
@@ -147,7 +113,7 @@ export function ChatSettingsVisualEditor({
 
       <StaticDataTable
         data={filteredChats}
-        getRowKey={(chat) => chat.name}
+        getRowKey={(chat) => chat.id}
         emptyContent={
           searchText
             ? t('No chat presets match your search')
@@ -160,13 +126,37 @@ export function ChatSettingsVisualEditor({
             id: 'name',
             header: t('Chat Client Name'),
             cellClassName: 'font-medium',
-            cell: (chat) => chat.name,
+            cell: (chat) => (
+              <span className='inline-flex items-center gap-2'>
+                <ChatPresetIcon name={chat.name} icon={chat.icon} />
+                {chat.name}
+              </span>
+            ),
           },
           {
             id: 'url',
             header: t('URL'),
             cellClassName: 'max-w-md truncate font-mono text-sm',
             cell: (chat) => chat.url,
+          },
+          {
+            id: 'shortcut',
+            header: t('API key shortcut'),
+            cell: (chat) => (
+              <Checkbox
+                aria-label={t('Import to {{name}}', { name: chat.name })}
+                checked={chat.shortcut}
+                disabled={!chat.shortcut && atLimit}
+                onCheckedChange={(shortcut) =>
+                  updateEntry(chat.id, {
+                    name: chat.name,
+                    url: chat.url,
+                    icon: chat.icon,
+                    shortcut,
+                  })
+                }
+              />
+            ),
           },
           {
             id: 'actions',
@@ -179,7 +169,7 @@ export function ChatSettingsVisualEditor({
                 deleteLabel={t('Delete')}
                 menuLabel={t('Open menu')}
                 onEdit={() => handleEdit(chat)}
-                onDelete={() => handleDelete(chat.name)}
+                onDelete={() => updateEntry(chat.id)}
               />
             ),
           },
@@ -189,7 +179,7 @@ export function ChatSettingsVisualEditor({
       <ChatDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onSave={handleSave}
+        onSave={(data) => updateEntry(editData?.id, data)}
         editData={editData}
       />
     </div>

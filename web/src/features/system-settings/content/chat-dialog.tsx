@@ -38,7 +38,8 @@ import { Input } from '@/components/ui/input'
 const createChatDialogSchema = (t: (key: string) => string) =>
   z.object({
     name: z.string().min(1, t('Chat client name is required')),
-    url: z.string().min(1, t('URL is required')),
+    url: z.string().trim().min(1, t('URL is required')),
+    icon: z.string().trim(),
   })
 
 type ChatDialogFormValues = z.infer<ReturnType<typeof createChatDialogSchema>>
@@ -48,6 +49,8 @@ const CHAT_DIALOG_FORM_ID = 'chat-dialog-form'
 export type ChatEntryData = {
   name: string
   url: string
+  icon: string
+  shortcut: boolean
 }
 
 type ChatDialogProps = {
@@ -72,22 +75,28 @@ export function ChatDialog({
     defaultValues: {
       name: '',
       url: '',
+      icon: '',
     },
   })
 
   useEffect(() => {
     if (editData) {
-      form.reset(editData)
+      form.reset({
+        name: editData.name,
+        url: editData.url,
+        icon: editData.icon,
+      })
     } else {
       form.reset({
         name: '',
         url: '',
+        icon: '',
       })
     }
   }, [editData, form, open])
 
   const handleSubmit = (values: ChatDialogFormValues) => {
-    onSave(values)
+    onSave({ ...values, shortcut: editData?.shortcut ?? false })
     form.reset()
     onOpenChange(false)
   }
@@ -119,7 +128,10 @@ export function ChatDialog({
       <Form {...form}>
         <form
           id={CHAT_DIALOG_FORM_ID}
-          onSubmit={form.handleSubmit(handleSubmit)}
+          onSubmit={(event) => {
+            event.stopPropagation()
+            void form.handleSubmit(handleSubmit)(event)
+          }}
           className='space-y-4'
         >
           <FormField
@@ -155,6 +167,18 @@ export function ChatDialog({
                   {t('The URL for this chat client.')}
                 </FormDescription>
                 <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name='icon'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Icon')}</FormLabel>
+                <FormControl>
+                  <Input placeholder='https://…' {...field} />
+                </FormControl>
               </FormItem>
             )}
           />

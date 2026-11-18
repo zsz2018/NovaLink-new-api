@@ -28,7 +28,7 @@ import {
   Link,
   Loader2,
 } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -47,8 +47,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { ChatPresetIcon } from '@/features/chat/components/chat-preset-icon'
 import { useChatPresets } from '@/features/chat/hooks/use-chat-presets'
-import { resolveChatUrl, type ChatPreset } from '@/features/chat/lib/chat-links'
+import {
+  MAX_CHAT_SHORTCUTS,
+  chatLinkRequiresApiKey,
+  resolveChatUrl,
+  type ChatPreset,
+} from '@/features/chat/lib/chat-links'
 import { sendToFluent } from '@/features/chat/lib/send-to-fluent'
 import { encodeChannelConnectionInfo } from '@/lib/channel-connection-info'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
@@ -97,46 +103,63 @@ export function DataTableRowActions<TData>({
   const hasChatPresets = chatPresets.length > 0
   const toggleLabel = isEnabled ? t('Disable') : t('Enable')
 
-  const handleOpenChatPreset = useCallback(
-    async (preset: ChatPreset) => {
-      const realKey = await resolveRealKey(apiKey.id)
-      if (!realKey) return
+  const openCcSwitch = async () => {
+    const key = await resolveRealKey(apiKey.id)
+    if (key) {
+      setResolvedKey(key)
+      setCurrentRow(apiKey)
+      setOpen('cc-switch')
+    }
+  }
 
-      if (preset.type === 'fluent') {
-        const success = sendToFluent(realKey, serverAddress)
-        if (success) {
-          toast.success(t('Sent the API key to FluentRead.'))
-        } else {
-          toast.info(
-            t(
-              'FluentRead extension not detected. Please ensure it is installed and active.'
-            )
+  const handleOpenChatPreset = async (preset: ChatPreset) => {
+    if (preset.url === 'ccswitch') return openCcSwitch()
+    const needsKey =
+      preset.type === 'fluent' || chatLinkRequiresApiKey(preset.url)
+    if (
+      preset.type !== 'fluent' &&
+      (!/^[a-z][a-z\d+.-]*:\/\//i.test(preset.url) ||
+        /^(javascript|data|file|vbscript|blob):/i.test(preset.url))
+    ) {
+      toast.error(t('Invalid chat link. Please contact your administrator.'))
+      return
+    }
+    const realKey = needsKey ? await resolveRealKey(apiKey.id) : ''
+    if (realKey === null) return
+
+    if (preset.type === 'fluent') {
+      const success = sendToFluent(realKey, serverAddress)
+      if (success) {
+        toast.success(t('Sent the API key to FluentRead.'))
+      } else {
+        toast.info(
+          t(
+            'FluentRead extension not detected. Please ensure it is installed and active.'
           )
-        }
-        return
+        )
       }
+      return
+    }
 
-      const resolvedUrl = resolveChatUrl({
-        template: preset.url,
-        apiKey: realKey,
-        serverAddress,
-      })
+    const resolvedUrl = resolveChatUrl({
+      template: preset.url,
+      apiKey: realKey,
+      serverAddress,
+    })
 
-      if (!resolvedUrl) {
-        toast.error(t('Invalid chat link. Please contact your administrator.'))
-        return
-      }
+    if (!resolvedUrl) {
+      toast.error(t('Invalid chat link. Please contact your administrator.'))
+      return
+    }
 
-      if (typeof window === 'undefined') return
+    if (typeof window === 'undefined') return
 
-      try {
-        window.open(resolvedUrl, '_blank', 'noopener')
-      } catch {
-        window.location.href = resolvedUrl
-      }
-    },
-    [resolveRealKey, apiKey.id, serverAddress, t]
-  )
+    try {
+      window.open(resolvedUrl, '_blank', 'noopener,noreferrer')
+    } catch {
+      window.location.href = resolvedUrl
+    }
+  }
 
   const handleToggleStatus = async (
     event?: React.MouseEvent<HTMLButtonElement>
@@ -215,6 +238,32 @@ export function DataTableRowActions<TData>({
         <TooltipContent>{t('Edit')}</TooltipContent>
       </Tooltip>
 
+      {chatPresets
+        .filter((preset) => preset.shortcut)
+        .slice(0, MAX_CHAT_SHORTCUTS)
+        .map((preset) => {
+          const label = t('Import to {{name}}', { name: preset.name })
+          return (
+            <Tooltip key={preset.id}>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant='ghost'
+                    size='icon-sm'
+                    aria-label={label}
+                    title={label}
+                    disabled={isRealKeyLoading}
+                    onClick={() => handleOpenChatPreset(preset)}
+                  />
+                }
+              >
+                <ChatPresetIcon name={preset.name} icon={preset.icon} />
+              </TooltipTrigger>
+              <TooltipContent>{label}</TooltipContent>
+            </Tooltip>
+          )
+        })}
+
       <DataTableRowActionMenu
         ariaLabel={t('Open menu')}
         contentClassName='w-[200px]'
@@ -253,15 +302,7 @@ export function DataTableRowActions<TData>({
           </DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={async () => {
-            const realKey = await resolveRealKey(apiKey.id)
-            if (!realKey) return
-            setResolvedKey(realKey)
-            setCurrentRow(apiKey)
-            setOpen('cc-switch')
-          }}
-        >
+        <DropdownMenuItem onClick={openCcSwitch}>
           {t('CC Switch')}
           <DropdownMenuShortcut>
             <ArrowRightLeft size={16} />

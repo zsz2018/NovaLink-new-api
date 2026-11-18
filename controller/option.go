@@ -387,6 +387,11 @@ func UpdateOption(c *gin.Context) {
 				return
 			}
 		}
+	case "Chats":
+		if _, err := setting.ParseChats(option.Value.(string)); err != nil {
+			common.ApiError(c, err)
+			return
+		}
 	case "console_setting.api_info":
 		err = console_setting.ValidateConsoleSettings(option.Value.(string), "ApiInfo")
 		if err != nil {

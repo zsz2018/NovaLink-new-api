@@ -97,12 +97,13 @@ function RootComponent() {
       <NavigationProgress />
       <Outlet />
       <Toaster closeButton duration={5000} position='top-center' richColors />
-      {import.meta.env.MODE === 'development' && (
-        <>
-          <ReactQueryDevtools buttonPosition='bottom-left' />
-          <TanStackRouterDevtools position='bottom-right' />
-        </>
-      )}
+      {import.meta.env.DEV &&
+        import.meta.env.PUBLIC_ENABLE_TANSTACK_DEVTOOLS === 'true' && (
+          <>
+            <ReactQueryDevtools buttonPosition='bottom-left' />
+            <TanStackRouterDevtools position='bottom-right' />
+          </>
+        )}
     </ThemeCustomizationProvider>
   )
 }
