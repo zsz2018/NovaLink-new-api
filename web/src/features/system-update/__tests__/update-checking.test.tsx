@@ -124,6 +124,62 @@ describe('administrator update entry', () => {
     }
   )
 
+  test('shows a keyboard-accessible repository link only at the brand position for a regular user', async () => {
+    const user = userEvent.setup()
+    useAuthStore
+      .getState()
+      .auth.setUser({ id: 2, username: 'user', role: ROLE.USER })
+    render(
+      <>
+        <SystemUpdateAction />
+        <SystemUpdateAction presentation='version' />
+      </>,
+      { wrapper: Wrapper }
+    )
+    const link = screen.getByRole('link', { name: 'Go to GitHub' })
+    expect(link).toHaveAttribute(
+      'href',
+      'https://github.com/zsz2018/NovaLink-new-api'
+    )
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    await user.tab()
+    expect(link).toHaveFocus()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  test('removes the repository link on logout and swaps it for updates when an administrator signs in', async () => {
+    useAuthStore.getState().auth.reset()
+    render(<SystemUpdateAction presentation='version' />, { wrapper: Wrapper })
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    act(() =>
+      useAuthStore
+        .getState()
+        .auth.setUser({ id: 2, username: 'user', role: ROLE.USER })
+    )
+    expect(
+      screen.getByRole('link', { name: 'Go to GitHub' })
+    ).toBeInTheDocument()
+    act(() => useAuthStore.getState().auth.reset())
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+    act(() =>
+      useAuthStore
+        .getState()
+        .auth.setUser({ id: 1, username: 'root', role: ROLE.SUPER_ADMIN })
+    )
+    expect(
+      await screen.findByRole('button', {
+        name: /System updates, current version:/,
+      })
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+  })
+
   test.each([ROLE.ADMIN, ROLE.SUPER_ADMIN])(
     'automatically shows the update indicator for administrator role %s without opening a dialog',
     async (role) => {
@@ -137,7 +193,7 @@ describe('administrator update entry', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
       const [url, options] = fetchMock.mock.calls[0]
       expect(String(url)).toBe(
-        'https://api.github.com/repos/QuantumNous/new-api/releases?per_page=100'
+        'https://api.github.com/repos/zsz2018/NovaLink-new-api/releases?per_page=100'
       )
       expect(options?.credentials).toBe('omit')
       expect(options?.headers).toEqual({
@@ -190,7 +246,7 @@ describe('administrator update entry', () => {
       within(dialog).getByRole('link', { name: 'Go to GitHub' })
     ).toHaveAttribute(
       'href',
-      'https://github.com/QuantumNous/new-api/releases/tag/v1.0.0-rc.36'
+      'https://github.com/zsz2018/NovaLink-new-api/releases/tag/v1.0.0-rc.36'
     )
     await user.keyboard('{Escape}')
     await waitFor(() =>
@@ -370,6 +426,28 @@ describe('administrator update entry', () => {
 })
 
 describe('version label presentation', () => {
+  test('keeps the installed NovaLink version in the header and shows the newer stable release separately', async () => {
+    const user = userEvent.setup()
+    client.setQueryData(STATUS_QUERY_KEY, { version: 'v1.0.0' })
+    respondWithRelease('v1.0.1')
+    render(<SystemUpdateAction presentation='version' />, { wrapper: Wrapper })
+    const trigger = await screen.findByRole('button', {
+      name: /System updates, current version: v1\.0\.0.*New version available: v1\.0\.1/s,
+    })
+    expect(within(trigger).getByText('v1.0.0')).toBeInTheDocument()
+    expect(within(trigger).queryByText('v1.0.1')).not.toBeInTheDocument()
+    await user.click(trigger)
+    const dialog = screen.getByRole('dialog', { name: 'System updates' })
+    expect(within(dialog).getByText('v1.0.0')).toBeInTheDocument()
+    expect(within(dialog).getByText('v1.0.1')).toBeInTheDocument()
+    expect(
+      within(dialog).getByRole('link', { name: 'Go to GitHub' })
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/zsz2018/NovaLink-new-api/releases/tag/v1.0.1'
+    )
+  })
+
   test('keeps the current version visible while checking and after finding no newer version', async () => {
     let finishRequest: ((response: Response) => void) | undefined
     fetchMock.mockImplementation(
@@ -454,14 +532,19 @@ describe('version notification preferences', () => {
     act(() => first.result.current.setIgnored(true))
     expect(first.result.current.hasUpdate).toBe(true)
     expect(first.result.current.shouldNotify).toBe(false)
-    const saved = localStorage.getItem('system-update-preferences:v1')
+    const saved = localStorage.getItem(
+      'system-update-preferences:zsz2018/NovaLink-new-api:v1'
+    )
     expect(saved).not.toBeNull()
     first.unmount()
     client.clear()
     useSystemUpdateStore.setState({ snapshot: null })
     useSystemUpdateStore.persist.clearStorage()
     useSystemUpdatePreferencesStore.setState({ ignoredVersionsByUserId: {} })
-    localStorage.setItem('system-update-preferences:v1', String(saved))
+    localStorage.setItem(
+      'system-update-preferences:zsz2018/NovaLink-new-api:v1',
+      String(saved)
+    )
     await useSystemUpdatePreferencesStore.persist.rehydrate()
     client = createAppQueryClient()
     client.setQueryData(STATUS_QUERY_KEY, { version: 'v1.0.0-rc.35' })
@@ -543,10 +626,13 @@ describe('version notification preferences', () => {
       version: 0,
     })
     act(() => {
-      localStorage.setItem('system-update-preferences:v1', saved)
+      localStorage.setItem(
+        'system-update-preferences:zsz2018/NovaLink-new-api:v1',
+        saved
+      )
       window.dispatchEvent(
         new StorageEvent('storage', {
-          key: 'system-update-preferences:v1',
+          key: 'system-update-preferences:zsz2018/NovaLink-new-api:v1',
           newValue: saved,
         })
       )
@@ -554,10 +640,12 @@ describe('version notification preferences', () => {
     expect(first.result.current.shouldNotify).toBe(false)
     expect(second.result.current.shouldNotify).toBe(false)
     act(() => {
-      localStorage.removeItem('system-update-preferences:v1')
+      localStorage.removeItem(
+        'system-update-preferences:zsz2018/NovaLink-new-api:v1'
+      )
       window.dispatchEvent(
         new StorageEvent('storage', {
-          key: 'system-update-preferences:v1',
+          key: 'system-update-preferences:zsz2018/NovaLink-new-api:v1',
           newValue: null,
         })
       )
@@ -586,7 +674,7 @@ describe('version notification preferences', () => {
         })
       } else {
         localStorage.setItem(
-          'system-update-preferences:v1',
+          'system-update-preferences:zsz2018/NovaLink-new-api:v1',
           state === 'corrupt'
             ? '{bad json'
             : JSON.stringify({
@@ -606,6 +694,40 @@ describe('version notification preferences', () => {
 })
 
 describe('update cache and scheduling', () => {
+  test('fetches NovaLink releases without reusing cached upstream releases or ignored tags', async () => {
+    const now = Date.now()
+    localStorage.setItem(
+      'system-update:v1',
+      JSON.stringify({
+        state: {
+          snapshot: {
+            release: { ...release, tag_name: 'v9.0.0' },
+            lastCheckedAt: now,
+            lastAttemptAt: now,
+            error: null,
+          },
+        },
+        version: 0,
+      })
+    )
+    localStorage.setItem(
+      'system-update-preferences:v1',
+      JSON.stringify({
+        state: { ignoredVersionsByUserId: { 1: [release.tag_name] } },
+        version: 0,
+      })
+    )
+    await useSystemUpdateStore.persist.rehydrate()
+    await useSystemUpdatePreferencesStore.persist.rehydrate()
+    const hook = renderHook(useSystemUpdate, { wrapper: Wrapper })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(hook.result.current.release?.tag_name).toBe(release.tag_name)
+    )
+    expect(hook.result.current.shouldNotify).toBe(true)
+    expect(hook.result.current.isIgnored).toBe(false)
+  })
+
   test('refreshes the server version during a later automatic check and clears an installed update', async () => {
     vi.useFakeTimers()
     fetchMock.mockImplementation(
@@ -631,10 +753,15 @@ describe('update cache and scheduling', () => {
     await waitFor(() => expect(first.result.current.hasUpdate).toBe(true))
     first.unmount()
     client.clear()
-    const saved = localStorage.getItem('system-update:v1')
+    const saved = localStorage.getItem(
+      'system-update:zsz2018/NovaLink-new-api:v1'
+    )
     expect(saved).not.toBeNull()
     useSystemUpdateStore.setState({ snapshot: null })
-    localStorage.setItem('system-update:v1', String(saved))
+    localStorage.setItem(
+      'system-update:zsz2018/NovaLink-new-api:v1',
+      String(saved)
+    )
     await useSystemUpdateStore.persist.rehydrate()
     client = createAppQueryClient()
     client.setQueryData(STATUS_QUERY_KEY, { version: 'v1.0.0-rc.35' })
@@ -647,11 +774,14 @@ describe('update cache and scheduling', () => {
     'keeps checking when persisted storage is %s',
     async (state) => {
       if (state === 'corrupt') {
-        localStorage.setItem('system-update:v1', '{bad json')
+        localStorage.setItem(
+          'system-update:zsz2018/NovaLink-new-api:v1',
+          '{bad json'
+        )
         await useSystemUpdateStore.persist.rehydrate()
       } else if (state === 'future') {
         localStorage.setItem(
-          'system-update:v1',
+          'system-update:zsz2018/NovaLink-new-api:v1',
           JSON.stringify({
             state: {
               snapshot: {

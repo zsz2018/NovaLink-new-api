@@ -25,6 +25,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { IconGithub } from '@/assets/brand-icons'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -32,6 +33,7 @@ import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
+import { SYSTEM_REPOSITORY_URL } from './releases'
 import { SystemUpdateDialog } from './system-update-dialog'
 import { useSystemUpdate } from './use-system-update'
 
@@ -42,11 +44,31 @@ type SystemUpdateActionProps = {
 }
 
 export function SystemUpdateAction(props: SystemUpdateActionProps) {
-  const isAdmin = useAuthStore(
-    (state) => (state.auth.user?.role ?? 0) >= ROLE.ADMIN
+  const { t } = useTranslation()
+  const user = useAuthStore((state) => state.auth.user)
+  if (!user) return null
+  if (user.role >= ROLE.ADMIN) return <AdminSystemUpdateAction {...props} />
+  if (props.presentation !== 'version') return null
+  return (
+    <Button
+      variant='ghost'
+      size='icon'
+      nativeButton={false}
+      role='link'
+      aria-label={t('Go to GitHub')}
+      title={t('Go to GitHub')}
+      className='text-muted-foreground'
+      render={
+        <a
+          href={SYSTEM_REPOSITORY_URL}
+          target='_blank'
+          rel='noopener noreferrer'
+        />
+      }
+    >
+      <IconGithub aria-hidden='true' />
+    </Button>
   )
-  if (!isAdmin) return null
-  return <AdminSystemUpdateAction {...props} />
 }
 
 function AdminSystemUpdateAction(props: SystemUpdateActionProps) {

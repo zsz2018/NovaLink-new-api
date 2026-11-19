@@ -38,7 +38,7 @@ import {
   UpdateCheckError,
   type UpdateCheckErrorCode,
 } from './api'
-import { compareSystemVersions } from './releases'
+import { compareSystemVersions, SYSTEM_REPOSITORY } from './releases'
 import {
   subscribeSystemUpdatePreferences,
   useSystemUpdatePreferencesStore,
@@ -47,7 +47,10 @@ import {
 } from './store'
 
 export const SYSTEM_UPDATE_INTERVAL = 60 * 60 * 1000
-export const SYSTEM_UPDATE_QUERY_KEY = ['system-update'] as const
+export const SYSTEM_UPDATE_QUERY_KEY = [
+  'system-update',
+  SYSTEM_REPOSITORY,
+] as const
 
 export function getUpdateErrorMessage(
   code: UpdateCheckErrorCode,
