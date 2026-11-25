@@ -338,6 +338,20 @@ type RecordConsumeLogParams struct {
 }
 
 func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams) {
+	if common.IsMonitorAIRequest(c) {
+		// Enforce privacy at the shared text/audio accounting boundary. Response
+		// model names, channel overrides and rejection text are upstream data.
+		other := NewLogOther()
+		other.SetPublic("request_path", "/pg/chat/completions")
+		if params.Other != nil && params.Other.adminInfo != nil {
+			if saturation, ok := params.Other.adminInfo["quota_saturation"]; ok {
+				other.SetAdmin("quota_saturation", saturation)
+			}
+		}
+		params.Content = nil
+		params.Other = other
+		c.Set(common.UpstreamRequestIdKey, "")
+	}
 	// Request plugin report hooks read what the request settled, whether or
 	// not consume logs are kept.
 	common.SetContextKey(c, constant.ContextKeyConsumeLog, &params)

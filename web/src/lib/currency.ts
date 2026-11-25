@@ -92,6 +92,8 @@ export interface CurrencyFormatOptions {
   digitsSmall?: number
   /** Whether to abbreviate thousands with k suffix */
   abbreviate?: boolean
+  /** Preserve all significant digits for monetary amounts, without compact notation or a display minimum. */
+  fullPrecision?: boolean
   /** Minimal absolute value to display when rounding would produce zero */
   minimumNonZero?: number
   /**
@@ -134,6 +136,7 @@ const DEFAULT_FORMAT_OPTIONS: ResolvedCurrencyFormatOptions = {
   digitsLarge: 2,
   digitsSmall: 4,
   abbreviate: true,
+  fullPrecision: false,
   minimumNonZero: 0,
   compact: false,
   showSymbol: true,
@@ -236,6 +239,8 @@ function mergeOptions(
     digitsLarge: options.digitsLarge ?? DEFAULT_FORMAT_OPTIONS.digitsLarge,
     digitsSmall: options.digitsSmall ?? DEFAULT_FORMAT_OPTIONS.digitsSmall,
     abbreviate: options.abbreviate ?? DEFAULT_FORMAT_OPTIONS.abbreviate,
+    fullPrecision:
+      options.fullPrecision ?? DEFAULT_FORMAT_OPTIONS.fullPrecision,
     minimumNonZero:
       options.minimumNonZero ?? DEFAULT_FORMAT_OPTIONS.minimumNonZero,
     compact: options.compact ?? DEFAULT_FORMAT_OPTIONS.compact,
@@ -322,35 +327,32 @@ function formatCurrencyValue(
     options.digitsLarge,
     options.digitsSmall
   )
-  const adjustedValue = adjustForMinimum(value, digits, options.minimumNonZero)
-
-  if (meta.kind === 'currency') {
-    if (!options.showSymbol) {
-      return new Intl.NumberFormat(options.locale, {
+  const adjustedValue = options.fullPrecision
+    ? value
+    : adjustForMinimum(value, digits, options.minimumNonZero)
+  const numberOptions: Intl.NumberFormatOptions = options.fullPrecision
+    ? { minimumFractionDigits: 0, maximumSignificantDigits: 21 }
+    : {
         notation: options.compact ? 'compact' : 'standard',
         minimumFractionDigits: 0,
         maximumFractionDigits: options.compact ? 1 : digits,
-      }).format(adjustedValue)
-    }
+      }
 
-    const formatted = new Intl.NumberFormat(options.locale, {
+  if (meta.kind === 'currency' && options.showSymbol) {
+    return new Intl.NumberFormat(options.locale, {
+      ...numberOptions,
       style: 'currency',
       currency: meta.currencyCode,
       currencyDisplay: 'narrowSymbol',
-      notation: options.compact ? 'compact' : 'standard',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: options.compact ? 1 : digits,
     }).format(adjustedValue)
-    return formatted
   }
 
-  const decimal = new Intl.NumberFormat(options.locale, {
-    notation: options.compact ? 'compact' : 'standard',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: options.compact ? 1 : digits,
-  }).format(adjustedValue)
-
-  return options.showSymbol ? `${meta.symbol} ${decimal}` : decimal
+  const decimal = new Intl.NumberFormat(options.locale, numberOptions).format(
+    adjustedValue
+  )
+  return meta.kind === 'custom' && options.showSymbol
+    ? `${meta.symbol} ${decimal}`
+    : decimal
 }
 
 /**

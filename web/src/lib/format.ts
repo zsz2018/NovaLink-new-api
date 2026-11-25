@@ -31,12 +31,29 @@ import {
 
 export function formatNumber(
   value: number | null | undefined,
-  locales?: Intl.LocalesArgument
+  locales?: Intl.LocalesArgument,
+  options?: {
+    fullPrecision?: boolean
+    style?: 'decimal' | 'percent'
+    showSymbol?: boolean
+  }
 ): string {
-  if (value == null || Number.isNaN(value as number)) return '-'
-  return Intl.NumberFormat(locales, { maximumFractionDigits: 2 }).format(
-    value as number
-  )
+  if (value == null || Number.isNaN(value)) return '-'
+  const precision = options?.fullPrecision
+    ? { maximumSignificantDigits: 21 }
+    : { maximumFractionDigits: 2 }
+  const formatter = Intl.NumberFormat(locales, {
+    ...precision,
+    style: options?.style,
+  })
+  if (options?.style === 'percent' && options.showSymbol === false) {
+    return formatter
+      .formatToParts(value)
+      .filter((part) => part.type !== 'percentSign' && part.type !== 'literal')
+      .map((part) => part.value)
+      .join('')
+  }
+  return formatter.format(value)
 }
 
 const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB']

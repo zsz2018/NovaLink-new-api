@@ -171,6 +171,12 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
             requiredRole: ROLE.SUPER_ADMIN,
           },
           {
+            title: t('Upstream monitoring'),
+            url: '/upstream-monitor',
+            icon: Activity,
+            requiredRole: ROLE.SUPER_ADMIN,
+          },
+          {
             title: t('Request processing'),
             url: '/request-processing',
             icon: Workflow,

@@ -26,6 +26,7 @@ export type VerificationMethod =
   | 'session'
 export type SecurityProofScope =
   | 'channel.key.read'
+  | 'upstream_monitor.device.pair'
   | 'passkey.register'
   | 'passkey.delete'
   | '2fa.setup'
