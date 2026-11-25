@@ -416,8 +416,30 @@ func TestEpayRSAModeSignsOrdersAndVerifiesCallbacks(t *testing.T) {
 	unsigned := maps.Clone(paid)
 	delete(unsigned, "sign")
 
+	// A platform can sign callbacks for multiple merchants with the same key.
+	// Valid signatures alone must not allow another merchant to settle our order.
+	platform.Config.PartnerID = "another_merchant"
+	wrongPartnerPaid, err := platform.SignParams(paidFields)
+	require.NoError(t, err)
+	wrongPartnerPending, err := platform.SignParams(map[string]string{
+		"type": "alipay", "money": "1.00", "name": "item", "out_trade_no": "order", "trade_status": "WAIT_BUYER_PAY",
+	})
+	require.NoError(t, err)
+	platform.Config.PartnerID = ""
+	missingPartner, err := platform.SignParams(paidFields)
+	require.NoError(t, err)
+	delete(missingPartner, "pid")
+	for _, params := range []map[string]string{wrongPartnerPaid, wrongPartnerPending, missingPartner} {
+		verified, err := client.Verify(params)
+		require.NoError(t, err)
+		require.True(t, verified.VerifyStatus, "merchant rejection must not rely on an invalid signature")
+	}
+
 	assertEpayCallbacksVerifyBeforeSettlement(t, []epayCallbackCase{
 		{name: "valid pending signed by platform", params: pending, validPending: true},
+		{name: "valid signature for another merchant paid", params: wrongPartnerPaid},
+		{name: "valid signature for another merchant pending", params: wrongPartnerPending},
+		{name: "valid signature without merchant", params: missingPartner},
 		{name: "tampered amount", params: tampered},
 		{name: "signed with merchant key", params: merchantSigned},
 		{name: "MD5 signature in RSA mode", params: md5Signed},
