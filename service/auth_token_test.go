@@ -162,6 +162,55 @@ func TestSecurityProofBindsIdentityAndOperation(t *testing.T) {
 	assert.ErrorIs(t, err, ErrAuthTokenExpired)
 }
 
+func TestMonitorPairingProofRequiresItsOwnScopeAndFreshAuthentication(t *testing.T) {
+	user := setupAuthSessionTestDB(t)
+	useTestSessionSecret(t)
+	binding, err := BindVerificationOperation(VerificationOperation{Scope: VerificationScopeMonitorDevicePair, Context: []byte(`{}`)})
+	require.NoError(t, err)
+	_, err = BindVerificationOperation(VerificationOperation{Scope: VerificationScopeMonitorDevicePair, Context: []byte(`{"device_id":"unexpected"}`)})
+	assert.ErrorIs(t, err, ErrVerificationContextInvalid)
+
+	identity := AuthIdentity{UserID: 42, SessionID: "monitor-pair-session", UserAuthVersion: 1, SessionVersion: 1}
+	proof, _, err := IssueSecurityProof(identity, VerificationMethodPassword, binding)
+	require.NoError(t, err)
+	_, err = verifySecurityProof(proof, identity, binding)
+	require.NoError(t, err)
+	channelBinding, err := BindVerificationOperation(VerificationOperation{Scope: VerificationScopeChannelKeyRead, Context: []byte(`{"channel_id":1}`)})
+	require.NoError(t, err)
+	_, err = verifySecurityProof(proof, identity, channelBinding)
+	assert.ErrorIs(t, err, ErrProofScope)
+
+	for _, tc := range []struct {
+		name  string
+		state model.UserVerificationState
+		want  []string
+	}{
+		{"password", model.UserVerificationState{HasPassword: true}, []string{VerificationMethodPassword}},
+		{"enrolled factors", model.UserVerificationState{HasPassword: true, HasTwoFA: true, HasPasskey: true}, []string{VerificationMethodTwoFA, VerificationMethodPasskey}},
+		{"linked provider", model.UserVerificationState{}, []string{VerificationMethodOAuth}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			options, policyErr := securityVerificationPolicy(VerificationScopeMonitorDevicePair, tc.state)
+			require.NoError(t, policyErr)
+			methods := make([]string, 0, len(options))
+			for _, option := range options {
+				methods = append(methods, option.Method)
+			}
+			assert.Equal(t, tc.want, methods)
+			assert.NotContains(t, methods, VerificationMethodSession)
+		})
+	}
+
+	require.NoError(t, model.DB.AutoMigrate(&model.TwoFA{}, &model.PasskeyCredential{}))
+	requestIdentity := AuthIdentity{UserID: user.Id, SessionID: "pairing-session", UserAuthVersion: user.AuthVersion}
+	_, err = GetVerificationRequirements(requestIdentity, VerificationScopeMonitorDevicePair)
+	assert.ErrorIs(t, err, ErrVerificationForbidden)
+	require.NoError(t, model.DB.Model(user).Update("role", common.RoleRootUser).Error)
+	_, err = GetVerificationRequirements(requestIdentity, VerificationScopeMonitorDevicePair)
+	require.NoError(t, err)
+	assert.ErrorIs(t, requireAccessTokenVerificationScope(AuthIdentity{UserID: 42, SessionID: model.AccessTokenSessionID(7)}, VerificationScopeMonitorDevicePair), ErrVerificationForbidden)
+}
+
 func TestSecurityProofBindsAccessTokenSession(t *testing.T) {
 	setupAuthSessionTestDB(t)
 	useTestSessionSecret(t)

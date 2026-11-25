@@ -21,6 +21,9 @@ func DecideRelayRetry(c *gin.Context, err *types.NewAPIError, retryTimes int) Po
 	if err == nil {
 		return PolicyDecision{Action: "stop", Reason: "request_completed", Source: "system"}
 	}
+	if common.IsMonitorAIRequest(c) {
+		return PolicyDecision{Action: "stop", Reason: "attempt_budget_exhausted", Source: "system"}
+	}
 	if ShouldSkipRetryAfterChannelAffinityFailure(c) {
 		source := RequestPolicy(c).SessionModeSource
 		if source == "" {
@@ -61,6 +64,9 @@ func ShouldRetryRelayError(c *gin.Context, openaiErr *types.NewAPIError, retryTi
 }
 
 func ProcessChannelError(c *gin.Context, channelError types.ChannelError, err *types.NewAPIError, relayInfo *relaycommon.RelayInfo) {
+	if common.IsMonitorAIRequest(c) {
+		return // Upstream error bodies must not become disable reasons or error logs.
+	}
 	if err == nil {
 		return
 	}
@@ -79,7 +85,7 @@ func ProcessChannelError(c *gin.Context, channelError types.ChannelError, err *t
 // RecordRelayErrorLog writes the error log of a failed relay request when
 // error logs are on. channelId is 0 for a request that reached no channel.
 func RecordRelayErrorLog(c *gin.Context, channelId int, err *types.NewAPIError, relayInfo *relaycommon.RelayInfo) {
-	if !constant.ErrorLogEnabled || !types.IsRecordErrorLog(err) {
+	if common.IsMonitorAIRequest(c) || !constant.ErrorLogEnabled || !types.IsRecordErrorLog(err) {
 		return
 	}
 	userId := c.GetInt("id")

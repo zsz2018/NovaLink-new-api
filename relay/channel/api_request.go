@@ -529,6 +529,28 @@ func DoRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	return doRequest(c, req, info)
 }
 
+type monitorAIResponseBody struct {
+	io.ReadCloser
+	remaining int
+}
+
+func (body *monitorAIResponseBody) Read(buffer []byte) (int, error) {
+	if body.remaining == 0 {
+		var probe [1]byte
+		n, err := body.ReadCloser.Read(probe[:])
+		if n != 0 {
+			return 0, errors.New("monitor AI response exceeds limit")
+		}
+		return 0, err
+	}
+	if len(buffer) > body.remaining {
+		buffer = buffer[:body.remaining]
+	}
+	n, err := body.ReadCloser.Read(buffer)
+	body.remaining -= n
+	return n, err
+}
+
 // keepUpstreamRedirectResponse stops net/http from following redirects while
 // returning the upstream 3xx response to the relay without an extra error.
 func keepUpstreamRedirectResponse(_ *http.Request, _ []*http.Request) error {
@@ -546,6 +568,10 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	// transparent stream retries.
 	relayClient := *client
 	relayClient.CheckRedirect = keepUpstreamRedirectResponse
+	if common2.IsMonitorAIRequest(c) {
+		req = req.WithContext(c.Request.Context())
+		req.GetBody = nil // A paid setup attempt must not transparently replay.
+	}
 	if common2.DebugEnabled && req != nil && req.URL != nil {
 		policy := service.NormalizeHTTPTransportPolicy(info.ChannelSetting)
 		logger.LogDebug(c, "http transport select: host=%s protocol=%s shards=%d policy=%s",
@@ -592,6 +618,11 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 			resp.Proto)
 	}
 
+	if common2.IsMonitorAIRequest(c) {
+		resp.Body = &monitorAIResponseBody{ReadCloser: resp.Body, remaining: 2 << 20}
+		// Header values are untrusted text too and must not enter usage logs.
+		resp.Header.Del(common2.RequestIdKey)
+	}
 	if upID := resp.Header.Get(common2.RequestIdKey); upID != "" {
 		c.Set(common2.UpstreamRequestIdKey, upID)
 	}

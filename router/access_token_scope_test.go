@@ -67,6 +67,17 @@ var accessTokenExemptRoutes = []string{
 	"GET /api/subscription/epay/return",
 	"POST /api/subscription/epay/return",
 
+	// Browser bridge uses one-time pairing and its own restricted device tokens.
+	"OPTIONS /api/upstream_monitor/bridge/*path",
+	"POST /api/upstream_monitor/bridge/pair",
+	"POST /api/upstream_monitor/bridge/restart",
+	"POST /api/upstream_monitor/bridge/poll",
+	"POST /api/upstream_monitor/bridge/jobs/:id/events",
+	"POST /api/upstream_monitor/bridge/jobs/:id/flow",
+	"POST /api/upstream_monitor/bridge/jobs/:id/result",
+	"POST /api/upstream_monitor/bridge/jobs/:id/ai/models",
+	"POST /api/upstream_monitor/bridge/jobs/:id/ai/generate",
+
 	// API key authentication (TokenAuthReadOnly).
 	"GET /api/usage/token/",
 	"GET /api/log/token",
@@ -141,6 +152,9 @@ func TestAccessTokenRouteRulesCoverEveryDashboardRoute(t *testing.T) {
 		assert.Equal(t, "scope", rule.Kind(), key)
 		assert.Equal(t, service.AccessTokenScopeOf(permission), rule.Scope(), key)
 	}
+	setupRule, ok := middleware.AccessTokenRouteRule("GET /api/upstream_monitor/browser_setup")
+	require.True(t, ok)
+	assert.Equal(t, "session", setupRule.Kind(), "browser readiness remains private to root browser sessions")
 }
 
 func TestAccessTokenCatalogCoversEveryPermission(t *testing.T) {

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"io"
 
 	"github.com/QuantumNous/new-api/common"
@@ -23,7 +24,11 @@ import (
 // ContentLength and GetBody. Closing the body, as the transport does, releases
 // only its cursor; the caller retains ownership of the underlying storage
 // through the separately returned closer.
-func NewOutboundJSONBody(data []byte) (body common.ReplayableBody, closer io.Closer, err error) {
+func NewOutboundJSONBody(data []byte, contexts ...context.Context) (body common.ReplayableBody, closer io.Closer, err error) {
+	if len(contexts) > 0 && common.IsMonitorAIRequest(contexts[0]) {
+		storage := common.NewMemoryBodyStorage(data)
+		return common.NewReplayableBodyReader(storage), storage, nil
+	}
 	storage, err := common.CreateBodyStorage(data)
 	if err != nil {
 		return nil, nil, err

@@ -50,6 +50,30 @@ func TestJsonRawMessageToString(t *testing.T) {
 	}
 }
 
+func TestDecodeJsonBodyStrictRejectsUnknownFieldsAndExtraValues(t *testing.T) {
+	type input struct {
+		Data struct {
+			Amount float64 `json:"amount"`
+		} `json:"data"`
+	}
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"unknown root field", `{"data":{"amount":0},"captures":[{"body":"discard"}]}`},
+		{"unknown nested field", `{"data":{"amount":0,"evidence":{"body":"discard"}}}`},
+		{"trailing value", `{"data":{"amount":0}} {}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var value input
+			require.Error(t, DecodeJsonBodyStrict(strings.NewReader(tc.body), &value))
+		})
+	}
+	var value input
+	require.NoError(t, DecodeJsonBodyStrict(strings.NewReader("{\"data\":{\"amount\":0}} \n\t"), &value))
+	assert.Zero(t, value.Data.Amount)
+}
+
 func TestDecodeJsonWithValidation(t *testing.T) {
 	type request struct {
 		Code string `json:"code" binding:"required"`

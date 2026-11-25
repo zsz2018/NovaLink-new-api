@@ -41,6 +41,16 @@ func accessTokenScopeRule(scope string) accessTokenRouteRule {
 // Casbin-guarded routes declare themselves through
 // DeclareAccessTokenPermissionRoute when they are registered.
 var accessTokenRouteRules = map[string]accessTokenRouteRule{
+	"GET /api/upstream_monitor/state":                 accessTokenSessionRule,
+	"GET /api/upstream_monitor/browser_setup":         accessTokenSessionRule,
+	"GET /api/upstream_monitor/profit/detail":         accessTokenSessionRule,
+	"PUT /api/upstream_monitor/config":                accessTokenSessionRule,
+	"POST /api/upstream_monitor/devices/pair":         accessTokenSessionRule,
+	"DELETE /api/upstream_monitor/devices/:id":        accessTokenSessionRule,
+	"DELETE /api/upstream_monitor/devices/:id/record": accessTokenSessionRule,
+	"POST /api/upstream_monitor/jobs":                 accessTokenSessionRule,
+	"GET /api/upstream_monitor/jobs/:id":              accessTokenSessionRule,
+	"POST /api/upstream_monitor/jobs/:id/control":     accessTokenSessionRule,
 	// router/api-router.go: top level
 	"GET /api/models":                     accessTokenScopeRule("profile:read"),
 	"GET /api/status/test":                accessTokenScopeRule("log:read"),

@@ -46,6 +46,9 @@ func planOf(c *gin.Context) *Plan {
 // the request, it starts capturing the response for Report; Reply starts it
 // for those a channel attempt brings.
 func Ingress(c *gin.Context, format types.RelayFormat) ([]relaycommon.RequestPluginStep, []relaycommon.RequestPluginRecord, *types.NewAPIError) {
+	if common.IsMonitorAIRequest(c) {
+		return nil, nil, nil // No plan means no later transform, reply or report hook.
+	}
 	plan := NewPlan()
 	if plan == nil {
 		return nil, nil, nil

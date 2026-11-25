@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"maps"
@@ -19,6 +20,30 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/net/http/httpproxy"
 )
+
+// monitorAIContextKey is server-only: no HTTP header or JSON field can enable it.
+// These requests carry transient browser schema samples and must never capture
+// payloads in logs, request plugins or disk body caches.
+type monitorAIContextKey struct{}
+
+func WithMonitorAIContext(ctx context.Context) context.Context {
+	return context.WithValue(ctx, monitorAIContextKey{}, true)
+}
+
+func IsMonitorAIRequest(ctx context.Context) bool {
+	if c, ok := ctx.(*gin.Context); ok {
+		if c.Request == nil {
+			return false
+		}
+		ctx = c.Request.Context()
+	}
+	return ctx != nil && ctx.Value(monitorAIContextKey{}) == true
+}
+
+// NewMemoryBodyStorage bypasses disk caching for bounded, sensitive payloads.
+func NewMemoryBodyStorage(data []byte) BodyStorage {
+	return newMemoryStorage(data)
+}
 
 const KeyRequestBody = "key_request_body"
 const KeyBodyStorage = "key_body_storage"

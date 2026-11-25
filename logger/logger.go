@@ -97,6 +97,9 @@ func LogDebug(ctx context.Context, msg string, args ...any) {
 }
 
 func logHelper(ctx context.Context, level string, msg string) {
+	if common.IsMonitorAIRequest(ctx) {
+		return // Only the normal structured usage log is retained for AI setup.
+	}
 	var id any = "SYSTEM"
 	if ctx != nil {
 		if requestID := ctx.Value(common.RequestIdKey); requestID != nil {
