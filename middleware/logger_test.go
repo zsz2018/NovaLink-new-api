@@ -66,12 +66,16 @@ func TestAccessAndPanicLogsFollowLogRotation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	*common.LogDir = t.TempDir()
 	t.Cleanup(func() {
+		assert.NoError(t, logger.CloseLogger())
 		gin.SetMode(previousMode)
+		common.LogWriterMu.Lock()
 		gin.DefaultWriter, gin.DefaultErrorWriter = previousWriter, previousErrorWriter
+		common.LogWriterMu.Unlock()
 		*common.LogDir = previousLogDir
 	})
 
 	logger.SetupLogger()
+	beforeRotationWriter := gin.DefaultWriter
 	router := gin.New()
 	router.Use(PanicRecover())
 	SetUpLogger(router)
@@ -87,6 +91,8 @@ func TestAccessAndPanicLogsFollowLogRotation(t *testing.T) {
 	// reuse the old name when both calls land in the same second; the checks
 	// below hold either way because only the new descriptor stays open.
 	logger.SetupLogger()
+	_, err = beforeRotationWriter.Write(nil)
+	assert.ErrorIs(t, err, os.ErrClosed)
 	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/ok/after-rotation", nil))
 	panicResponse := httptest.NewRecorder()
 	router.ServeHTTP(panicResponse, httptest.NewRequest(http.MethodGet, "/panic", nil))
@@ -98,6 +104,19 @@ func TestAccessAndPanicLogsFollowLogRotation(t *testing.T) {
 	assert.Contains(t, string(content), "[Recovery]")
 	assert.Contains(t, string(content), "rotation-panic-marker\n")
 	assert.Contains(t, string(content), "middleware/logger_test.go")
+
+	currentWriter := gin.DefaultWriter
+	require.NoError(t, logger.CloseLogger())
+	assert.Empty(t, logger.GetCurrentLogPath())
+	assert.Same(t, os.Stdout, gin.DefaultWriter)
+	assert.Same(t, os.Stderr, gin.DefaultErrorWriter)
+	_, err = currentWriter.Write(nil)
+	assert.ErrorIs(t, err, os.ErrClosed)
+	require.NoError(t, logger.CloseLogger())
+	_, err = common.LogWriter.Write(nil)
+	assert.NoError(t, err)
+	_, err = common.ErrorLogWriter.Write(nil)
+	assert.NoError(t, err)
 }
 
 func TestSetUpLoggerOmitsQueryCredentialsTakenOutByHandlers(t *testing.T) {

@@ -337,6 +337,17 @@ func awaitH2ServerResult(t *testing.T, resultCh <-chan h2ServerResult) h2ServerR
 	}
 }
 
+// closeH2TestConnection preserves queued HTTP/2 frames instead of resetting
+// TCP when unread client control frames remain, which Windows can otherwise do.
+func closeH2TestConnection(conn net.Conn) error {
+	defer conn.Close()
+	if err := conn.(*net.TCPConn).CloseWrite(); err != nil {
+		return err
+	}
+	_, err := io.Copy(io.Discard, conn)
+	return err
+}
+
 // runResetOnFirstStreamServer speaks just enough raw HTTP/2 to emulate an
 // upstream that accepts the first request, waits until the request body has
 // been fully written, and then resets the stream with REFUSED_STREAM (the
@@ -372,6 +383,7 @@ func runResetOnFirstStreamServer(ln net.Listener, expectRetry bool) <-chan h2Ser
 					return
 				}
 				if !expectRetry {
+					res.err = closeH2TestConnection(conn)
 					break attempts
 				}
 				continue
@@ -379,6 +391,8 @@ func runResetOnFirstStreamServer(ln net.Listener, expectRetry bool) <-chan h2Ser
 
 			if err := writeH2TestResponse(framer, streamID); err != nil {
 				res.err = err
+			} else {
+				res.err = closeH2TestConnection(conn)
 			}
 			return
 		}
@@ -409,20 +423,21 @@ func runGoAwayAfterFirstRequestServer(ln net.Listener) <-chan h2ServerResult {
 
 			if attempt == 0 {
 				err = framer.WriteGoAway(0, http2.ErrCodeNo, nil)
-				conn.Close()
-				if err != nil {
-					res.err = err
-					return
-				}
-				continue
+			} else {
+				err = writeH2TestResponse(framer, streamID)
 			}
-
-			err = writeH2TestResponse(framer, streamID)
-			conn.Close()
+			if err == nil {
+				err = closeH2TestConnection(conn)
+			} else {
+				conn.Close()
+			}
 			if err != nil {
 				res.err = err
+				return
 			}
-			return
+			if attempt == 1 {
+				return
+			}
 		}
 	}()
 	return resCh

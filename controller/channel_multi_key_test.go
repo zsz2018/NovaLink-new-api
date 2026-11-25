@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -28,7 +27,7 @@ func TestMultiKeyEnableRestoresOnlyExhaustedChannels(t *testing.T) {
 	t.Setenv("SQL_DSN", os.Getenv("TEST_CHANNEL_SQL_DSN"))
 	t.Setenv("LOG_SQL_DSN", "")
 	common.IsMasterNode, common.MemoryCacheEnabled, common.RedisEnabled = false, false, false
-	common.SQLitePath = filepath.Join(t.TempDir(), "channel.db")
+	common.SQLitePath = sqliteTestDatabaseDSN(t, "channel.db")
 	require.NoError(t, model.InitDB())
 	database := model.DB
 	sqlDB, err := database.DB()

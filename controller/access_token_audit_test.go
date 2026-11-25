@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -826,18 +827,25 @@ type releasedAuditLog struct {
 
 func (releasedAuditLog) TableName() string { return "logs" }
 
+// sqliteTestDatabaseDSN keeps file-backed persistence and production locking.
+// These fixtures do not simulate power loss, so NORMAL avoids syncing every write.
+func sqliteTestDatabaseDSN(t *testing.T, name string) string {
+	t.Helper()
+	return filepath.Join(t.TempDir(), name) + "?_pragma=busy_timeout(30000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_txlock=immediate"
+}
+
 // External tests create a new database per case on a loopback-only disposable
 // instance. They never drop databases or tables supplied through an environment variable.
 func newAuditTestDatabase(t *testing.T, kind, dsn string) (*gorm.DB, string) {
 	t.Helper()
 	if kind == "sqlite" {
-		path := t.TempDir() + "/audit.db"
-		db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+		dsn := sqliteTestDatabaseDSN(t, "audit.db")
+		db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 		require.NoError(t, err)
 		connection, err := db.DB()
 		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, connection.Close()) })
-		return db, path
+		return db, dsn
 	}
 	require.NotEmpty(t, dsn)
 	name := fmt.Sprintf("newapi_audit_%d", time.Now().UnixNano())
@@ -986,6 +994,11 @@ func verifyAuditJSONStorage(t *testing.T) {
 	assert.JSONEq(t, `{}`, string(empty))
 	for range 2 {
 		require.NoError(t, model.InitLogDB())
+		if os.Getenv("LOG_SQL_DSN") != "" {
+			connection, err := model.LOG_DB.DB()
+			require.NoError(t, err)
+			t.Cleanup(func() { assert.NoError(t, connection.Close()) })
+		}
 	}
 	entries, total, err = model.GetAuditLogs(filter, 0, 20, common.RoleRootUser)
 	require.NoError(t, err)
@@ -1079,6 +1092,9 @@ func TestAuditDatabaseMatrix(t *testing.T) {
 					}
 					for range 2 {
 						require.NoError(t, model.InitDB())
+						connection, err := model.DB.DB()
+						require.NoError(t, err)
+						t.Cleanup(func() { assert.NoError(t, connection.Close()) })
 						require.NoError(t, model.InitLogDB())
 					}
 					if !upgrade {
@@ -1191,8 +1207,12 @@ func TestIndependentAuditLogStores(t *testing.T) {
 				}
 				t.Setenv("LOG_SQL_DSN", isolatedDSN)
 				t.Setenv("LOG_SQL_CLICKHOUSE_TTL_DAYS", "7")
-				require.NoError(t, model.InitLogDB())
-				require.NoError(t, model.InitLogDB())
+				for range 2 {
+					require.NoError(t, model.InitLogDB())
+					connection, err := model.LOG_DB.DB()
+					require.NoError(t, err)
+					t.Cleanup(func() { assert.NoError(t, connection.Close()) })
+				}
 				if upgrade {
 					var old model.Log
 					require.NoError(t, model.LOG_DB.Where("request_id = ?", "legacy-split-request").Take(&old).Error)

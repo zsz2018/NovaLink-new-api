@@ -61,7 +61,7 @@ func setupSecurityEnrollmentTest(t *testing.T) (*model.User, service.AuthIdentit
 		// Deferred transactions can fail to upgrade their read lock when concurrent
 		// proof consumption overlaps account deletion or session revocation.
 		var err error
-		db, err = gorm.Open(sqlite.Open(t.TempDir()+"/security.db?_pragma=busy_timeout(30000)&_pragma=journal_mode(WAL)&_txlock=immediate"), &gorm.Config{})
+		db, err = gorm.Open(sqlite.Open(sqliteTestDatabaseDSN(t, "security.db")), &gorm.Config{})
 		require.NoError(t, err)
 	} else {
 		db, _ = newAuditTestDatabase(t, dialect, dsn)

@@ -73,6 +73,27 @@ func SetupLogger() {
 	}
 }
 
+// CloseLogger closes the current log file and restores the standard output writers.
+// It is safe to call more than once.
+func CloseLogger() error {
+	setupLogLock.Lock()
+	defer setupLogLock.Unlock()
+	common.LogWriterMu.Lock()
+	defer common.LogWriterMu.Unlock()
+	currentLogPathMu.Lock()
+	defer currentLogPathMu.Unlock()
+
+	if currentLogFile == nil {
+		return nil
+	}
+	file := currentLogFile
+	currentLogFile = nil
+	currentLogPath = ""
+	gin.DefaultWriter = os.Stdout
+	gin.DefaultErrorWriter = os.Stderr
+	return file.Close()
+}
+
 func LogInfo(ctx context.Context, msg string) {
 	logHelper(ctx, loggerINFO, msg)
 }
