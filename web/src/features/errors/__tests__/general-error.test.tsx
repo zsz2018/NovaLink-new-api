@@ -146,6 +146,22 @@ test.each([undefined, 429, 500])(
   }
 )
 
+test('error feedback opens the maintained NovaLink repository issues page', async () => {
+  const router = createTestRouter(new Error('Render failed'))
+  render(<RouterProvider router={router} />)
+  await screen.findByText('Current page')
+  await act(() => router.navigate({ to: '/wallet' }))
+  const feedback = await screen.findByRole('button', {
+    name: 'Report an issue',
+  })
+  expect(feedback).toHaveAttribute(
+    'href',
+    'https://github.com/zsz2018/NovaLink-new-api/issues'
+  )
+  expect(feedback).toHaveAttribute('target', '_blank')
+  expect(feedback).toHaveAttribute('rel', 'noopener noreferrer')
+})
+
 test('a chunk failure with blocked session storage shows the error without risking a reload loop', async () => {
   vi.stubGlobal('sessionStorage', {
     getItem: () => null,
