@@ -1,6 +1,12 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createInstance } from 'i18next'
+import { I18nextProvider } from 'react-i18next'
 import { describe, expect, test, vi } from 'vitest'
+
+import en from '@/i18n/locales/en.json'
+import fr from '@/i18n/locales/fr.json'
+import zh from '@/i18n/locales/zh.json'
 
 import { BindingsPanel } from '../components/bindings-panel'
 import type { MonitorAccount, MonitorSnapshot, MonitorState } from '../types'
@@ -148,7 +154,9 @@ describe('cost binding selectors', () => {
     expect(screen.getAllByRole('option')).toHaveLength(2)
     await user.type(group, 'shop-a')
     await user.click(
-      screen.getByRole('option', { name: 'shop-a (Shared display name)' })
+      screen.getByRole('option', {
+        name: 'shop-a (Shared display name) · Upstream ratio 1',
+      })
     )
     await user.click(screen.getByRole('combobox', { name: 'Local model' }))
     expect(screen.getAllByRole('option')).toHaveLength(3)
@@ -172,6 +180,92 @@ describe('cost binding selectors', () => {
               upstream_model: 'gpt-upstream',
             }),
           ],
+        })
+      )
+    )
+  })
+
+  test('group options and selected labels show full captured ratios, preserve zero and keep missing ratios unknown', async () => {
+    const user = userEvent.setup()
+    const input = state()
+    const latest = input.snapshots.find((item) => item.id === 'newest')
+    if (!latest) throw new Error('Missing confirmed snapshot')
+    latest.data.groups = [
+      {
+        name: 'shop-a',
+        display_name: 'Shared display name',
+        ratio: 0.085123456789,
+      },
+      { name: 'shop-b', display_name: 'Shared display name', ratio: 0 },
+      { name: 'unknown', ratio: null },
+    ]
+    render(<BindingsPanel state={input} onSave={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Add binding' }))
+    const group = screen.getByRole('combobox', { name: 'Upstream group' })
+    await user.click(group)
+    const precise =
+      'shop-a (Shared display name) · Upstream ratio 0.085123456789'
+    expect(screen.getByRole('option', { name: precise })).toBeVisible()
+    expect(
+      screen.getByRole('option', {
+        name: 'shop-b (Shared display name) · Upstream ratio 0',
+      })
+    ).toBeVisible()
+    expect(
+      screen.getByRole('option', { name: 'unknown · Upstream ratio Unknown' })
+    ).toBeVisible()
+    await user.click(screen.getByRole('option', { name: precise }))
+    expect(group).toHaveValue(precise)
+  })
+
+  test('selected group ratio labels follow interface language changes without replacing the saved group code', async () => {
+    const user = userEvent.setup()
+    const input = state()
+    const latest = input.snapshots.find((item) => item.id === 'newest')
+    if (!latest) throw new Error('Missing confirmed snapshot')
+    latest.data.groups[0].ratio = 0.085123456789
+    input.config.bindings = [
+      {
+        id: 'binding',
+        channel_id: 1,
+        account_id: 'bee',
+        upstream_group: 'shop-a',
+        local_model: '',
+        upstream_model: '',
+      },
+    ]
+    const translations = createInstance()
+    await translations.init({
+      lng: 'en',
+      fallbackLng: 'en',
+      keySeparator: false,
+      nsSeparator: false,
+      resources: { en, fr, zhCN: zh },
+    })
+    const onSave = vi.fn().mockResolvedValue(undefined)
+    render(
+      <I18nextProvider i18n={translations}>
+        <BindingsPanel state={input} onSave={onSave} />
+      </I18nextProvider>
+    )
+    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    const group = screen.getByRole('combobox', { name: 'Upstream group' })
+    expect(group).toHaveValue(
+      'shop-a (Shared display name) · Upstream ratio 0.085123456789'
+    )
+    await act(() => translations.changeLanguage('fr'))
+    expect(group).toHaveValue(
+      'shop-a (Shared display name) · Coefficient fournisseur 0,085123456789'
+    )
+    await act(() => translations.changeLanguage('zhCN'))
+    expect(group).toHaveValue(
+      'shop-a (Shared display name) · 上游倍率 0.085123456789'
+    )
+    await user.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bindings: [expect.objectContaining({ upstream_group: 'shop-a' })],
         })
       )
     )
@@ -215,7 +309,9 @@ describe('cost binding selectors', () => {
     await user.click(group)
     expect(screen.getAllByRole('option')).toHaveLength(1)
     await user.click(
-      screen.getByRole('option', { name: 'other-code (Shared display name)' })
+      screen.getByRole('option', {
+        name: 'other-code (Shared display name) · Upstream ratio 1',
+      })
     )
     await user.click(upstream)
     expect(screen.getByRole('option', { name: 'other-model' })).toBeVisible()
@@ -233,7 +329,9 @@ describe('cost binding selectors', () => {
     await user.click(screen.getByRole('button', { name: 'Add binding' }))
     await user.click(screen.getByRole('combobox', { name: 'Upstream group' }))
     await user.click(
-      screen.getByRole('option', { name: 'shop-a (Shared display name)' })
+      screen.getByRole('option', {
+        name: 'shop-a (Shared display name) · Upstream ratio 1',
+      })
     )
     await user.click(screen.getByRole('combobox', { name: 'Local model' }))
     await user.click(screen.getByRole('option', { name: 'local-gpt' }))
@@ -322,7 +420,9 @@ describe('cost binding selectors', () => {
     await user.click(screen.getByRole('button', { name: 'Add binding' }))
     await user.click(screen.getByRole('combobox', { name: 'Upstream group' }))
     await user.click(
-      screen.getByRole('option', { name: 'shop-a (Shared display name)' })
+      screen.getByRole('option', {
+        name: 'shop-a (Shared display name) · Upstream ratio 1',
+      })
     )
     const models = screen.getByRole('combobox', { name: 'Local model' })
     await user.click(models)

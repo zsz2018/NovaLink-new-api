@@ -18,6 +18,8 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { parseModelsList } from '@/features/channels/lib/channel-utils'
+import { toIntlLocale } from '@/i18n/languages'
+import { formatNumber } from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
 
 import { bindingSchema, newMonitorID } from '../lib/config'
@@ -41,7 +43,8 @@ function BindingDialog(props: {
   onSave: SaveMonitorConfig
   onClose: () => void
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const binding = props.binding
   const form = useForm<z.infer<typeof bindingSchema>>({
     resolver: zodResolver(bindingSchema),
@@ -64,7 +67,15 @@ function BindingDialog(props: {
   const groupOptions = includeSavedOption(
     (snapshot?.data.groups ?? []).map((item) => ({
       value: item.name,
-      label: monitorGroupLabel(item.name, item.display_name),
+      label: `${monitorGroupLabel(item.name, item.display_name)} · ${t(
+        'Upstream ratio {{ratio}}',
+        {
+          ratio:
+            item.ratio === null
+              ? t('Unknown')
+              : formatNumber(item.ratio, locale, { fullPrecision: true }),
+        }
+      )}`,
     })),
     binding?.account_id === accountID ? binding.upstream_group : undefined
   )
