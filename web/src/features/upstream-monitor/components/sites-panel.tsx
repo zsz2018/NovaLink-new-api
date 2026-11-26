@@ -203,6 +203,7 @@ export function SitesPanel(props: {
                                 locale,
                                 showSymbol: false,
                                 abbreviate: false,
+                                fullPrecision: true,
                               })}{' '}
                           {balance.currency}
                         </p>

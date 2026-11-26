@@ -1260,6 +1260,61 @@ describe('profit comparisons', () => {
     expect(within(accounts).getByRole('table')).toBeVisible()
   })
 
+  test('upstream account balances retain captured fractional precision, signs and unknown values', () => {
+    const state = stateWithRows([])
+    state.config.accounts = [
+      {
+        id: 'account',
+        site_id: 'site',
+        name: 'Precision account',
+        username: 'operator',
+        external_id: '42',
+        has_password: false,
+        device_id: '',
+        flow_id: '',
+        interval_minutes: 0,
+        enabled: true,
+        purchase_factor: 1,
+        fee_rate: 0,
+        fee_bearer: 'self',
+      },
+    ]
+    state.snapshots = [
+      {
+        id: 'snapshot',
+        job_id: 'job',
+        account_id: 'account',
+        confirmed: true,
+        complete: true,
+        created_at: 100,
+        data: {
+          account_id: '42',
+          groups: [],
+          models: [],
+          topups: [],
+          warnings: [],
+          balances: [
+            { kind: 'wallet', amount: 4.000123456, currency: 'USD' },
+            { kind: 'available', amount: -0.00022783, currency: 'CNY' },
+            { kind: 'tiny', amount: 8.5123456789e-14, currency: 'JPY' },
+            { kind: 'zero', amount: 0, currency: 'USD' },
+            { kind: 'unknown', amount: null, currency: 'USD' },
+          ],
+        },
+      },
+    ]
+
+    render(<SitesPanel state={state} onSave={vi.fn()} onRun={vi.fn()} />)
+
+    expect(screen.getByText('wallet: 4.000123456 USD')).toBeVisible()
+    expect(screen.getByText('available: -0.00022783 CNY')).toBeVisible()
+    expect(
+      screen.getByText('tiny: 0.000000000000085123456789 JPY')
+    ).toBeVisible()
+    expect(screen.getByText('zero: 0 USD')).toBeVisible()
+    expect(screen.getByText('unknown: — USD')).toBeVisible()
+  })
+
   test.each([false, true])(
     'all models with estimates=%s shows labeled unconnected inventory without changing scenario totals',
     async (estimated) => {
