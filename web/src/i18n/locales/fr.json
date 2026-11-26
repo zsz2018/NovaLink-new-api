@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Bind channels in {{group}}": "Lier les canaux du groupe {{group}}",
+    "Channels in local group {{group}}": "Canaux du groupe local {{group}}",
     "How to configure the encryption key": "Comment configurer la clé de chiffrement",
     "For first-time setup, generate a random 32-byte Base64 key on the server:": "Lors de la première configuration, générez sur le serveur une clé aléatoire de 32 octets encodée en Base64 :",
     "In docker-compose.yml or docker-compose.dev.yml, find the new-api service environment section. Uncomment UPSTREAM_MONITOR_KEY and replace the placeholder with the generated key:": "Dans docker-compose.yml ou docker-compose.dev.yml, repérez la section environment du service new-api. Décommentez UPSTREAM_MONITOR_KEY et remplacez la valeur d’exemple par la clé générée :",

@@ -17,7 +17,10 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { parseModelsList } from '@/features/channels/lib/channel-utils'
+import {
+  parseGroupsList,
+  parseModelsList,
+} from '@/features/channels/lib/channel-utils'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
@@ -37,8 +40,9 @@ function includeSavedOption(
     : options
 }
 
-function BindingDialog(props: {
+export function BindingDialog(props: {
   binding?: MonitorBinding
+  localGroup?: string
   state: MonitorState
   onSave: SaveMonitorConfig
   onClose: () => void
@@ -46,10 +50,17 @@ function BindingDialog(props: {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const binding = props.binding
+  const localGroup = props.localGroup
+  const channels =
+    localGroup === undefined
+      ? props.state.channels
+      : props.state.channels.filter((channel) =>
+          parseGroupsList(channel.group).includes(localGroup)
+        )
   const form = useForm<z.infer<typeof bindingSchema>>({
     resolver: zodResolver(bindingSchema),
     defaultValues: {
-      channel_id: binding?.channel_id ?? props.state.channels[0]?.id ?? 0,
+      channel_id: binding?.channel_id ?? channels[0]?.id ?? 0,
       account_id:
         binding?.account_id ?? props.state.config.accounts[0]?.id ?? '',
       upstream_group: binding?.upstream_group ?? '',
@@ -63,7 +74,7 @@ function BindingDialog(props: {
   const localModels = form.watch('local_models')
   const localModel = localModels.length === 1 ? localModels[0] : undefined
   const snapshot = latestMonitorSnapshots(props.state.snapshots).get(accountID)
-  const channel = props.state.channels.find((item) => item.id === channelID)
+  const channel = channels.find((item) => item.id === channelID)
   const groupOptions = includeSavedOption(
     (snapshot?.data.groups ?? []).map((item) => ({
       value: item.name,
@@ -104,6 +115,13 @@ function BindingDialog(props: {
   const clearUpstreamModel = () =>
     form.setValue('upstream_model', '', { shouldDirty: true })
   const submit = async (values: z.infer<typeof bindingSchema>) => {
+    if (
+      props.localGroup !== undefined &&
+      !channels.some((channel) => channel.id === values.channel_id)
+    ) {
+      form.setError('channel_id', { message: t('Select an option') })
+      return
+    }
     const { local_models, ...scope } = values
     const existing = props.state.config.bindings.filter(
       (item) => item.id !== binding?.id
@@ -157,6 +175,11 @@ function BindingDialog(props: {
         if (!open) props.onClose()
       }}
       title={t('Channel cost binding')}
+      description={
+        props.localGroup === undefined
+          ? undefined
+          : t('Channels in local group {{group}}', { group: props.localGroup })
+      }
       footer={
         <>
           <Button variant='outline' onClick={props.onClose}>
@@ -166,7 +189,10 @@ function BindingDialog(props: {
             type='submit'
             form='monitor-binding-form'
             disabled={
-              form.formState.isSubmitting || !group || !localModels.length
+              form.formState.isSubmitting ||
+              !group ||
+              !localModels.length ||
+              (props.localGroup !== undefined && !channel)
             }
           >
             {t('Save')}
@@ -184,11 +210,12 @@ function BindingDialog(props: {
             control={form.control}
             name='channel_id'
             label={t('Channel')}
+            searchable
             onValueChange={() => {
               form.setValue('local_models', [''], { shouldDirty: true })
               clearUpstreamModel()
             }}
-            options={props.state.channels.map((channel) => ({
+            options={channels.map((channel) => ({
               value: String(channel.id),
               label: channel.name,
             }))}

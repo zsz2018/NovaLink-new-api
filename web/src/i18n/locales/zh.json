@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Bind channels in {{group}}": "绑定 {{group}} 下的渠道",
+    "Channels in local group {{group}}": "本站分组：{{group}}",
     "How to configure the encryption key": "如何配置加密密钥",
     "For first-time setup, generate a random 32-byte Base64 key on the server:": "首次配置时，请在服务器上生成一个以 Base64 编码的 32 字节随机密钥：",
     "In docker-compose.yml or docker-compose.dev.yml, find the new-api service environment section. Uncomment UPSTREAM_MONITOR_KEY and replace the placeholder with the generated key:": "在 docker-compose.yml 或 docker-compose.dev.yml 中找到 new-api 服务的 environment 配置段。取消 UPSTREAM_MONITOR_KEY 的注释，并将占位值替换为生成的密钥：",

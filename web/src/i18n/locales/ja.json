@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Bind channels in {{group}}": "{{group}} のチャネルを紐付け",
+    "Channels in local group {{group}}": "ローカルグループ {{group}} のチャネル",
     "How to configure the encryption key": "暗号化キーの設定方法",
     "For first-time setup, generate a random 32-byte Base64 key on the server:": "初回設定時は、サーバー上で32バイトのランダムなキーをBase64形式で生成してください：",
     "In docker-compose.yml or docker-compose.dev.yml, find the new-api service environment section. Uncomment UPSTREAM_MONITOR_KEY and replace the placeholder with the generated key:": "docker-compose.yml または docker-compose.dev.yml で、new-api サービスの environment セクションを探してください。UPSTREAM_MONITOR_KEY のコメントを解除し、プレースホルダーを生成したキーに置き換えてください：",

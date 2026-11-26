@@ -1,3 +1,4 @@
+import { Link2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -9,9 +10,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { parseGroupsList } from '@/features/channels/lib/channel-utils'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatLocalCurrencyAmount } from '@/lib/currency'
 import { formatNumber, formatTimestamp } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 import { monitorGroupLabel } from '../lib/groups'
 import { latestMonitorSnapshots } from '../lib/jobs'
@@ -38,6 +46,7 @@ export const profitColumnsClassName =
 export function ProfitPanel(props: {
   state: MonitorState
   onSnapshot: (id: string) => void
+  onBind?: (group: string) => void
 }) {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
@@ -194,39 +203,73 @@ export function ProfitPanel(props: {
             className='flex min-h-0 min-w-0 flex-col rounded-xl border'
             aria-label={t('Local groups')}
           >
-            <h3 className='shrink-0 border-b px-3 py-2 text-sm font-medium'>
-              {t('Local groups')}
+            <h3 className='flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2 text-sm font-medium'>
+              <span>{t('Local groups')}</span>
+              <Badge variant='secondary' className='tabular-nums'>
+                {formatNumber(localGroups.length, locale)}
+              </Badge>
             </h3>
             <div className='max-h-72 min-h-0 space-y-1 overflow-y-auto overscroll-contain p-2 lg:max-h-none lg:flex-1'>
               {localGroups.map((group) => (
-                <Button
+                <div
                   key={group}
-                  variant={
-                    selection.localGroup === group ? 'secondary' : 'ghost'
-                  }
-                  className='h-auto w-full justify-start px-3 py-2 text-left whitespace-normal'
-                  aria-pressed={selection.localGroup === group}
-                  onClick={() => {
-                    setLocalGroup(group)
-                    setUpstreamKey('')
-                  }}
+                  className={cn(
+                    'flex min-w-0 items-center rounded-md',
+                    selection.localGroup === group && 'bg-secondary'
+                  )}
                 >
-                  <span className='min-w-0'>
-                    <span className='block break-all'>{group}</span>
-                    <span className='text-muted-foreground block text-xs'>
-                      {t('Ratio {{ratio}} · {{count}} routes', {
-                        ratio: formatNumber(
-                          rows.find((row) => row.local_group === group)
-                            ?.local_ratio,
-                          locale,
-                          { fullPrecision: true }
-                        ),
-                        count: rows.filter((row) => row.local_group === group)
-                          .length,
-                      })}
+                  <Button
+                    variant='ghost'
+                    className='h-auto min-w-0 flex-1 justify-start px-3 py-2 text-left whitespace-normal'
+                    aria-pressed={selection.localGroup === group}
+                    onClick={() => {
+                      setLocalGroup(group)
+                      setUpstreamKey('')
+                    }}
+                  >
+                    <span className='min-w-0'>
+                      <span className='block break-all'>{group}</span>
+                      <span className='text-muted-foreground block text-xs'>
+                        {t('Ratio {{ratio}} · {{count}} routes', {
+                          ratio: formatNumber(
+                            rows.find((row) => row.local_group === group)
+                              ?.local_ratio,
+                            locale,
+                            { fullPrecision: true }
+                          ),
+                          count: rows.filter((row) => row.local_group === group)
+                            .length,
+                        })}
+                      </span>
                     </span>
-                  </span>
-                </Button>
+                  </Button>
+                  {props.onBind && (
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant='ghost'
+                            size='icon-sm'
+                            className='mr-1 shrink-0'
+                            aria-label={t('Bind channels in {{group}}', {
+                              group,
+                            })}
+                            disabled={
+                              !props.state.config.accounts.length ||
+                              !props.state.channels.some((channel) =>
+                                parseGroupsList(channel.group).includes(group)
+                              )
+                            }
+                            onClick={() => props.onBind?.(group)}
+                          >
+                            <Link2 className='size-4' />
+                          </Button>
+                        }
+                      />
+                      <TooltipContent>{t('Bind')}</TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
               ))}
             </div>
           </section>
@@ -234,8 +277,11 @@ export function ProfitPanel(props: {
             className='flex min-h-0 min-w-0 flex-col rounded-xl border'
             aria-label={t('Upstream groups')}
           >
-            <h3 className='shrink-0 border-b px-3 py-2 text-sm font-medium'>
-              {t('Upstream groups')}
+            <h3 className='flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2 text-sm font-medium'>
+              <span>{t('Upstream groups')}</span>
+              <Badge variant='secondary' className='tabular-nums'>
+                {formatNumber(upstreams.length, locale)}
+              </Badge>
             </h3>
             <div className='max-h-72 min-h-0 space-y-1 overflow-y-auto overscroll-contain p-2 lg:max-h-none lg:flex-1'>
               {upstreams.map(([key, row]) => {

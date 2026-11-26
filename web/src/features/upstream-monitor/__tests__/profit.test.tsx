@@ -486,6 +486,7 @@ describe('profit comparisons', () => {
         name: 'Channel cost bindings',
       })
       expect(drawer).toHaveAttribute('data-side', 'right')
+      expect(drawer).toHaveClass('w-full', 'sm:w-[90vw]', 'sm:max-w-7xl')
       expect(bindings).toHaveAttribute('aria-expanded', 'true')
       expect(
         within(drawer).getByRole('button', { name: 'Add binding' })
@@ -495,6 +496,165 @@ describe('profit comparisons', () => {
       expect(bindings).toHaveAttribute('aria-expanded', 'false')
       await waitFor(() => expect(bindings).toHaveFocus())
       expect(models).toBeVisible()
+    } finally {
+      view.unmount()
+      client.clear()
+    }
+  })
+
+  test('quick binding opens the shared dialog with only exact local-group channels and saves without dropping existing bindings', async () => {
+    const user = userEvent.setup()
+    const state = stateWithRows([
+      baseRow,
+      { ...baseRow, local_group: 'premium' },
+      { ...baseRow, local_group: 'no-channels' },
+    ])
+    state.channels = [
+      { id: 1, name: 'Standard channel', group: 'standard', models: 'model-a' },
+      {
+        id: 2,
+        name: 'Shared channel',
+        group: 'standard, premium',
+        models: 'shared-model',
+      },
+      {
+        id: 3,
+        name: 'Premium channel',
+        group: 'premium',
+        models: 'premium-model',
+      },
+      {
+        id: 4,
+        name: 'Wrong group',
+        group: 'premium-plus',
+        models: 'wrong-model',
+      },
+    ]
+    state.config.accounts = [
+      {
+        id: 'account-a',
+        site_id: 'site-a',
+        name: 'Account A',
+        username: 'operator',
+        external_id: '42',
+        has_password: true,
+        device_id: '',
+        flow_id: '',
+        interval_minutes: 0,
+        enabled: true,
+        purchase_factor: 1,
+        fee_rate: 0,
+        fee_bearer: 'self',
+      },
+    ]
+    const existing = {
+      id: 'existing',
+      channel_id: 1,
+      account_id: 'account-a',
+      upstream_group: 'base',
+      local_model: 'model-a',
+      upstream_model: 'source-a',
+    }
+    state.config.bindings = [existing]
+    state.snapshots = [
+      {
+        id: 'capture',
+        job_id: 'job',
+        account_id: 'account-a',
+        confirmed: true,
+        complete: true,
+        created_at: 1,
+        data: {
+          account_id: '42',
+          balances: [],
+          models: [],
+          groups: [{ name: 'base', ratio: 0.5 }],
+          topups: [],
+          warnings: [],
+        },
+      },
+    ]
+    const get = vi
+      .spyOn(api, 'get')
+      .mockResolvedValue({ data: { success: true, data: state } })
+    const put = vi
+      .spyOn(api, 'put')
+      .mockResolvedValue({ data: { success: true } })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+    })
+    const view = render(
+      <QueryClientProvider client={client}>
+        <UpstreamMonitor />
+      </QueryClientProvider>
+    )
+    try {
+      const quick = await screen.findByRole('button', {
+        name: 'Bind channels in premium',
+      })
+      expect(
+        screen.getByRole('button', { name: 'Bind channels in no-channels' })
+      ).toBeDisabled()
+      const local = within(screen.getByRole('region', { name: 'Local groups' }))
+      expect(
+        local.getByRole('button', { name: /^standard/, pressed: true })
+      ).toBeVisible()
+      quick.focus()
+      await user.keyboard('{Enter}')
+      const dialog = within(
+        await screen.findByRole('dialog', { name: 'Channel cost binding' })
+      )
+      expect(dialog.getByText('Channels in local group premium')).toBeVisible()
+      const channel = dialog.getByRole('combobox', { name: 'Channel' })
+      expect(channel).toHaveValue('Shared channel')
+      await user.click(channel)
+      expect(screen.getAllByRole('option')).toHaveLength(2)
+      expect(
+        screen.getByRole('option', { name: 'Shared channel' })
+      ).toBeVisible()
+      expect(
+        screen.queryByRole('option', { name: 'Standard channel' })
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('option', { name: 'Wrong group' })
+      ).not.toBeInTheDocument()
+      await user.type(channel, 'premium')
+      await user.click(screen.getByRole('option', { name: 'Premium channel' }))
+      await user.click(dialog.getByRole('combobox', { name: 'Upstream group' }))
+      await user.click(
+        screen.getByRole('option', { name: 'base · Upstream ratio 0.5' })
+      )
+      await user.click(dialog.getByRole('button', { name: 'Save' }))
+      await waitFor(() =>
+        expect(put).toHaveBeenCalledWith(
+          '/api/upstream_monitor/config',
+          expect.objectContaining({
+            bindings: [
+              existing,
+              expect.objectContaining({
+                channel_id: 3,
+                account_id: 'account-a',
+                upstream_group: 'base',
+                local_model: '',
+                upstream_model: '',
+              }),
+            ],
+          })
+        )
+      )
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('dialog', { name: 'Channel cost binding' })
+        ).not.toBeInTheDocument()
+      )
+      expect(
+        local.getByRole('button', { name: /^standard/, pressed: true })
+      ).toBeVisible()
+      expect(state.config.bindings).toEqual([existing])
+      expect(
+        get.mock.calls.filter(([url]) => url === '/api/upstream_monitor/state')
+          .length
+      ).toBeGreaterThan(1)
     } finally {
       view.unmount()
       client.clear()
@@ -892,7 +1052,7 @@ describe('profit comparisons', () => {
       upstreamKey: '',
     })
   })
-  test('switching local groups updates selected upstream and models with keyboard access', async () => {
+  test('group headers count distinct list entries and update upstream counts when switching local groups', async () => {
     const user = userEvent.setup()
     const second = {
       ...baseRow,
@@ -901,27 +1061,55 @@ describe('profit comparisons', () => {
       site_name: 'Site B',
       local_model: 'model-b',
     }
-    render(
+    const view = render(
       <ProfitPanel
-        state={stateWithRows([baseRow, second])}
+        state={stateWithRows([
+          baseRow,
+          { ...baseRow, channel_id: 2, local_model: 'another-model' },
+          { ...baseRow, account_id: 'another-account', site_name: 'Site C' },
+          second,
+        ])}
         onSnapshot={vi.fn()}
       />
     )
     expect(screen.getByText('model-a')).toBeInTheDocument()
     const local = screen.getByRole('region', { name: 'Local groups' })
+    const upstream = screen.getByRole('region', { name: 'Upstream groups' })
+    expect(
+      within(within(local).getByRole('heading')).getByText('2')
+    ).toBeVisible()
+    expect(
+      within(within(upstream).getByRole('heading')).getByText('2')
+    ).toBeVisible()
+    expect(within(local).getAllByRole('button')).toHaveLength(2)
+    expect(within(upstream).getAllByRole('button')).toHaveLength(2)
     const premium = within(local).getByRole('button', { name: /premium/ })
     premium.focus()
     await user.keyboard('{Enter}')
     expect(premium).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('model-b')).toBeInTheDocument()
     expect(screen.queryByText('model-a')).not.toBeInTheDocument()
-    const upstream = screen.getByRole('region', { name: 'Upstream groups' })
     expect(
       within(upstream).getByRole('button', { pressed: true })
     ).toHaveTextContent('Site B')
+    expect(
+      within(within(local).getByRole('heading')).getByText('2')
+    ).toBeVisible()
+    expect(
+      within(within(upstream).getByRole('heading')).getByText('1')
+    ).toBeVisible()
     expect(screen.getByTestId('profit-columns')).toHaveClass(
       'lg:grid-cols-[20fr_20fr_60fr]'
     )
+    view.rerender(
+      <ProfitPanel state={stateWithRows([second])} onSnapshot={vi.fn()} />
+    )
+    expect(
+      within(within(local).getByRole('heading')).getByText('1')
+    ).toBeVisible()
+    expect(
+      within(within(upstream).getByRole('heading')).getByText('1')
+    ).toBeVisible()
   })
   test('profit list omits repeated account names, channel names and the comparable badge', () => {
     const state = stateWithRows([baseRow])

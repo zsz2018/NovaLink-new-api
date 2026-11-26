@@ -8,7 +8,7 @@ import en from '@/i18n/locales/en.json'
 import fr from '@/i18n/locales/fr.json'
 import zh from '@/i18n/locales/zh.json'
 
-import { BindingsPanel } from '../components/bindings-panel'
+import { BindingDialog, BindingsPanel } from '../components/bindings-panel'
 import type { MonitorAccount, MonitorSnapshot, MonitorState } from '../types'
 
 const account: MonitorAccount = {
@@ -269,6 +269,106 @@ describe('cost binding selectors', () => {
         })
       )
     )
+  })
+
+  test('channel search filters names, preserves selection on no match and saves the selected numeric ID', async () => {
+    const user = userEvent.setup()
+    const input = state()
+    input.channels[1].name = '美团 LongChat'
+    input.config.bindings = [
+      {
+        id: 'binding',
+        channel_id: 1,
+        account_id: 'bee',
+        upstream_group: 'shop-a',
+        local_model: 'local-gpt',
+        upstream_model: 'gpt-upstream',
+      },
+    ]
+    const onSave = vi.fn().mockResolvedValue(undefined)
+    render(<BindingsPanel state={input} onSave={onSave} />)
+    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    const channel = screen.getByRole('combobox', { name: 'Channel' })
+    expect(channel).toHaveValue('OpenAI')
+    await user.click(channel)
+    await user.type(channel, 'no-matching-channel')
+    expect(screen.getByText('No results found')).toBeVisible()
+    expect(screen.queryByRole('option')).not.toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(channel).toHaveValue('OpenAI')
+    await user.click(channel)
+    await user.type(channel, 'LONGchat')
+    expect(screen.getAllByRole('option')).toHaveLength(1)
+    expect(screen.getByRole('option', { name: '美团 LongChat' })).toBeVisible()
+    await user.keyboard('{ArrowDown}{Enter}')
+    expect(channel).toHaveValue('美团 LongChat')
+    await user.click(screen.getByRole('combobox', { name: 'Local model' }))
+    expect(
+      screen.getByRole('option', { name: 'All channel models' })
+    ).toHaveAttribute('aria-selected', 'true')
+    expect(
+      screen.queryByRole('option', { name: 'local-gpt' })
+    ).not.toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(
+      screen.getByRole('combobox', { name: 'Upstream model' })
+    ).toHaveValue('Channel mapping')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bindings: [
+            expect.objectContaining({
+              channel_id: 2,
+              upstream_group: 'shop-a',
+              local_model: '',
+              upstream_model: '',
+            }),
+          ],
+        })
+      )
+    )
+  })
+
+  test('a channel moved out of the quick-binding group after refresh cannot be saved', async () => {
+    const user = userEvent.setup()
+    const input = state()
+    const onSave = vi.fn()
+    const onClose = vi.fn()
+    const view = render(
+      <BindingDialog
+        localGroup='default'
+        state={input}
+        onSave={onSave}
+        onClose={onClose}
+      />
+    )
+    await user.click(screen.getByRole('combobox', { name: 'Upstream group' }))
+    await user.click(
+      screen.getByRole('option', {
+        name: 'shop-a (Shared display name) · Upstream ratio 1',
+      })
+    )
+    const save = screen.getByRole('button', { name: 'Save' })
+    expect(save).toBeEnabled()
+    view.rerender(
+      <BindingDialog
+        localGroup='default'
+        state={{
+          ...input,
+          channels: input.channels.map((channel) => ({
+            ...channel,
+            group: 'another-group',
+          })),
+        }}
+        onSave={onSave}
+        onClose={onClose}
+      />
+    )
+    expect(save).toBeDisabled()
+    await user.click(save)
+    expect(onSave).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   test('clears incompatible selections when switching account, channel or model scope', async () => {

@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Bind channels in {{group}}": "Liên kết các kênh trong {{group}}",
+    "Channels in local group {{group}}": "Các kênh thuộc nhóm cục bộ {{group}}",
     "How to configure the encryption key": "Cách cấu hình khóa mã hóa",
     "For first-time setup, generate a random 32-byte Base64 key on the server:": "Khi thiết lập lần đầu, hãy tạo khóa ngẫu nhiên 32 byte được mã hóa Base64 trên máy chủ:",
     "In docker-compose.yml or docker-compose.dev.yml, find the new-api service environment section. Uncomment UPSTREAM_MONITOR_KEY and replace the placeholder with the generated key:": "Trong docker-compose.yml hoặc docker-compose.dev.yml, tìm mục environment của dịch vụ new-api. Bỏ dấu chú thích của UPSTREAM_MONITOR_KEY và thay giá trị giữ chỗ bằng khóa vừa tạo:",

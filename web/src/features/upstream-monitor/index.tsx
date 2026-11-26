@@ -23,7 +23,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import { getMonitorState, monitorQueryKey, saveMonitorConfig } from './api'
-import { BindingsPanel } from './components/bindings-panel'
+import { BindingDialog, BindingsPanel } from './components/bindings-panel'
 import { DevicesPanel } from './components/devices-panel'
 import { EncryptionKeyNotice } from './components/encryption-key-notice'
 import { FlowsPanel } from './components/flows-panel'
@@ -41,6 +41,7 @@ export function UpstreamMonitor() {
   const { t } = useTranslation()
   const client = useQueryClient()
   const [tab, setTab] = useState('profit')
+  const [bindingGroup, setBindingGroup] = useState<string | null>(null)
   const [run, setRun] = useState<MonitorAccount | null>(null)
   const [configure, setConfigure] = useState<{ flow?: MonitorFlow } | null>(
     null
@@ -81,7 +82,9 @@ export function UpstreamMonitor() {
                 {t('Channel cost bindings')}
               </SheetTrigger>
               <SheetContent
-                className={sideDrawerContentClassName('sm:w-4/5 sm:max-w-5xl')}
+                className={sideDrawerContentClassName(
+                  'sm:w-[90vw] sm:max-w-7xl'
+                )}
               >
                 <SheetHeader
                   className={sideDrawerHeaderClassName('pr-12 sm:pr-12')}
@@ -138,7 +141,11 @@ export function UpstreamMonitor() {
                   value='profit'
                   className='min-h-0 flex-1 overflow-y-auto pt-2 lg:overflow-hidden'
                 >
-                  <ProfitPanel state={state} onSnapshot={setSnapshotID} />
+                  <ProfitPanel
+                    state={state}
+                    onSnapshot={setSnapshotID}
+                    onBind={setBindingGroup}
+                  />
                 </TabsContent>
                 <TabsContent
                   value='sites'
@@ -188,6 +195,14 @@ export function UpstreamMonitor() {
           )}
         </SectionPageLayout.Content>
       </SectionPageLayout>
+      {bindingGroup !== null && state && (
+        <BindingDialog
+          localGroup={bindingGroup}
+          state={state}
+          onSave={save}
+          onClose={() => setBindingGroup(null)}
+        />
+      )}
       {run && state && (
         <RunDialog
           account={run}
