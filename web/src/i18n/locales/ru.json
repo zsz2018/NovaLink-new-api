@@ -1,5 +1,13 @@
 {
   "translation": {
+    "How to configure the encryption key": "Как настроить ключ шифрования",
+    "For first-time setup, generate a random 32-byte Base64 key on the server:": "При первоначальной настройке сгенерируйте на сервере случайный 32-байтовый ключ в кодировке Base64:",
+    "In docker-compose.yml or docker-compose.dev.yml, find the new-api service environment section. Uncomment UPSTREAM_MONITOR_KEY and replace the placeholder with the generated key:": "В docker-compose.yml или docker-compose.dev.yml найдите раздел environment сервиса new-api. Раскомментируйте UPSTREAM_MONITOR_KEY и замените значение-заглушку сгенерированным ключом:",
+    "Recreate the backend container to apply the environment variable; restarting the existing container does not load changes:": "Пересоздайте контейнер бэкенда, чтобы применить переменную окружения; перезапуск существующего контейнера не загружает изменения:",
+    "For docker-compose.dev.yml, use:": "Для docker-compose.dev.yml используйте:",
+    "Replace new-api in these commands if your backend service has a different name. Refresh this page after the backend starts.": "Замените new-api в этих командах, если сервис бэкенда называется иначе. Обновите эту страницу после запуска бэкенда.",
+    "For a direct executable deployment, set UPSTREAM_MONITOR_KEY in the backend environment or in .env in its working directory, then restart the backend.": "При запуске исполняемого файла напрямую задайте UPSTREAM_MONITOR_KEY в окружении бэкенда или в файле .env в его рабочем каталоге, затем перезапустите бэкенд.",
+    "Keep the key backed up separately from the database and use the same key on every backend node. If credentials are already saved, restore the original key instead of generating a replacement.": "Храните резервную копию ключа отдельно от базы данных и используйте один и тот же ключ на всех узлах бэкенда. Если учётные данные уже сохранены, восстановите исходный ключ вместо создания нового.",
     "Select at most 500 estimate mappings.": "Выберите не более 500 сопоставлений для оценки.",
     "Select each upstream model and group only once.": "Каждую пару модели и группы поставщика выбирайте только один раз.",
     "Use exact non-empty model and group names within the supported UTF-8 limits, without surrounding spaces or control characters.": "Используйте точные непустые имена моделей и групп в пределах UTF-8, без пробелов по краям и управляющих символов.",

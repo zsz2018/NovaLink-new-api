@@ -1,5 +1,13 @@
 {
   "translation": {
+    "How to configure the encryption key": "暗号化キーの設定方法",
+    "For first-time setup, generate a random 32-byte Base64 key on the server:": "初回設定時は、サーバー上で32バイトのランダムなキーをBase64形式で生成してください：",
+    "In docker-compose.yml or docker-compose.dev.yml, find the new-api service environment section. Uncomment UPSTREAM_MONITOR_KEY and replace the placeholder with the generated key:": "docker-compose.yml または docker-compose.dev.yml で、new-api サービスの environment セクションを探してください。UPSTREAM_MONITOR_KEY のコメントを解除し、プレースホルダーを生成したキーに置き換えてください：",
+    "Recreate the backend container to apply the environment variable; restarting the existing container does not load changes:": "環境変数を適用するには、バックエンドのコンテナを再作成してください。既存コンテナの再起動では変更は読み込まれません：",
+    "For docker-compose.dev.yml, use:": "docker-compose.dev.yml を使用する場合：",
+    "Replace new-api in these commands if your backend service has a different name. Refresh this page after the backend starts.": "バックエンドのサービス名が異なる場合は、これらのコマンド内の new-api を置き換えてください。バックエンドの起動後、このページを再読み込みしてください。",
+    "For a direct executable deployment, set UPSTREAM_MONITOR_KEY in the backend environment or in .env in its working directory, then restart the backend.": "実行ファイルを直接起動する構成では、バックエンドの環境変数または作業ディレクトリの .env ファイルに UPSTREAM_MONITOR_KEY を設定し、バックエンドを再起動してください。",
+    "Keep the key backed up separately from the database and use the same key on every backend node. If credentials are already saved, restore the original key instead of generating a replacement.": "キーはデータベースとは別にバックアップし、すべてのバックエンドノードで同じキーを使用してください。認証情報が保存済みの場合は、新しいキーを生成せず、元のキーを復元してください。",
     "Select at most 500 estimate mappings.": "推定マッピングは500件以下で選択してください。",
     "Select each upstream model and group only once.": "上流モデルとグループの組み合わせは1回だけ選択してください。",
     "Use exact non-empty model and group names within the supported UTF-8 limits, without surrounding spaces or control characters.": "UTF-8の上限内で空でない正確なモデル名とグループ名を使用し、前後の空白や制御文字を含めないでください。",

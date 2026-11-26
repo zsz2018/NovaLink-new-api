@@ -31,6 +31,12 @@ services:
       - REDIS_CONN_STRING=redis://redis
       - TZ=Asia/Shanghai
       - BATCH_UPDATE_ENABLED=true
+      # 上游监控凭据加密：首次配置运行 openssl rand -base64 32 生成密钥，再取消下一行注释并替换占位值。
+      # Upstream credential encryption: generate with openssl rand -base64 32, then uncomment and replace the placeholder.
+      # - UPSTREAM_MONITOR_KEY=base64_encoded_32_random_bytes
+      # 修改后执行 / Apply with: docker compose -f docker-compose.dev.yml up -d --no-deps --force-recreate new-api
+      # 单纯重启不会更新环境变量。密钥独立备份，所有节点使用同一持久密钥；已有凭据时沿用原密钥。
+      # A restart does not reload environment changes. Back up the key separately; reuse the same persistent key on all nodes and for existing credentials.
       # Local HTTP dev mode: keep Secure=false and leave TRUSTED_URL unset. This disables the refresh/logout OriginGuard so the :5173 -> :3000 dev proxy works.
       - SESSION_COOKIE_SECURE=false
       # For HTTPS only: set Secure=true and list every exact trusted HTTPS browser Origin. This does not configure relay CORS.

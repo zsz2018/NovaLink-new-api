@@ -12,7 +12,6 @@ import {
 import { ErrorState } from '@/components/error-state'
 import { SectionPageLayout } from '@/components/layout'
 import { LoadingState } from '@/components/loading-state'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -26,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getMonitorState, monitorQueryKey, saveMonitorConfig } from './api'
 import { BindingsPanel } from './components/bindings-panel'
 import { DevicesPanel } from './components/devices-panel'
+import { EncryptionKeyNotice } from './components/encryption-key-notice'
 import { FlowsPanel } from './components/flows-panel'
 import { JobDetail } from './components/job-detail'
 import { JobsPanel } from './components/jobs-panel'
@@ -105,18 +105,7 @@ export function UpstreamMonitor() {
           )}
           {state && (
             <div className='flex h-full min-h-0 flex-col gap-3'>
-              {!state.key_ready && (
-                <Alert variant='destructive'>
-                  <AlertTitle>
-                    {t('Credential encryption is not configured')}
-                  </AlertTitle>
-                  <AlertDescription>
-                    {t(
-                      'An administrator must configure the upstream monitor encryption key before saving credentials or running tasks.'
-                    )}
-                  </AlertDescription>
-                </Alert>
-              )}
+              <EncryptionKeyNotice ready={state.key_ready} />
               <Tabs
                 value={tab}
                 onValueChange={setTab}

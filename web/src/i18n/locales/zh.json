@@ -1,5 +1,13 @@
 {
   "translation": {
+    "How to configure the encryption key": "如何配置加密密钥",
+    "For first-time setup, generate a random 32-byte Base64 key on the server:": "首次配置时，请在服务器上生成一个以 Base64 编码的 32 字节随机密钥：",
+    "In docker-compose.yml or docker-compose.dev.yml, find the new-api service environment section. Uncomment UPSTREAM_MONITOR_KEY and replace the placeholder with the generated key:": "在 docker-compose.yml 或 docker-compose.dev.yml 中找到 new-api 服务的 environment 配置段。取消 UPSTREAM_MONITOR_KEY 的注释，并将占位值替换为生成的密钥：",
+    "Recreate the backend container to apply the environment variable; restarting the existing container does not load changes:": "请重新创建后端容器以应用环境变量；重启现有容器不会加载这些更改：",
+    "For docker-compose.dev.yml, use:": "使用 docker-compose.dev.yml 时，请执行：",
+    "Replace new-api in these commands if your backend service has a different name. Refresh this page after the backend starts.": "若后端服务名称不同，请替换这些命令中的 new-api。后端启动后，请刷新此页面。",
+    "For a direct executable deployment, set UPSTREAM_MONITOR_KEY in the backend environment or in .env in its working directory, then restart the backend.": "直接运行可执行文件部署时，请在后端环境变量或其工作目录中的 .env 文件内设置 UPSTREAM_MONITOR_KEY，然后重启后端。",
+    "Keep the key backed up separately from the database and use the same key on every backend node. If credentials are already saved, restore the original key instead of generating a replacement.": "请将密钥与数据库分开备份，并在所有后端节点上使用同一密钥。若已保存凭据，请恢复原密钥，不要生成新密钥替换。",
     "Select at most 500 estimate mappings.": "最多选择 500 条估算映射。",
     "Select each upstream model and group only once.": "每个上游模型和分组组合只能选择一次。",
     "Use exact non-empty model and group names within the supported UTF-8 limits, without surrounding spaces or control characters.": "请使用非空且符合 UTF-8 字节限制的精确模型名和分组名，不得包含首尾空格或控制字符。",

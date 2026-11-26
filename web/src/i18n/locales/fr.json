@@ -1,5 +1,13 @@
 {
   "translation": {
+    "How to configure the encryption key": "Comment configurer la clé de chiffrement",
+    "For first-time setup, generate a random 32-byte Base64 key on the server:": "Lors de la première configuration, générez sur le serveur une clé aléatoire de 32 octets encodée en Base64 :",
+    "In docker-compose.yml or docker-compose.dev.yml, find the new-api service environment section. Uncomment UPSTREAM_MONITOR_KEY and replace the placeholder with the generated key:": "Dans docker-compose.yml ou docker-compose.dev.yml, repérez la section environment du service new-api. Décommentez UPSTREAM_MONITOR_KEY et remplacez la valeur d’exemple par la clé générée :",
+    "Recreate the backend container to apply the environment variable; restarting the existing container does not load changes:": "Recréez le conteneur backend pour appliquer la variable d’environnement ; redémarrer le conteneur existant ne charge pas les modifications :",
+    "For docker-compose.dev.yml, use:": "Pour docker-compose.dev.yml, utilisez :",
+    "Replace new-api in these commands if your backend service has a different name. Refresh this page after the backend starts.": "Remplacez new-api dans ces commandes si votre service backend porte un autre nom. Actualisez cette page après le démarrage du backend.",
+    "For a direct executable deployment, set UPSTREAM_MONITOR_KEY in the backend environment or in .env in its working directory, then restart the backend.": "Pour un déploiement par exécutable, définissez UPSTREAM_MONITOR_KEY dans l’environnement du backend ou dans le fichier .env de son répertoire de travail, puis redémarrez le backend.",
+    "Keep the key backed up separately from the database and use the same key on every backend node. If credentials are already saved, restore the original key instead of generating a replacement.": "Sauvegardez la clé séparément de la base de données et utilisez la même clé sur tous les nœuds backend. Si des identifiants sont déjà enregistrés, restaurez la clé d’origine au lieu d’en générer une nouvelle.",
     "Select at most 500 estimate mappings.": "Sélectionnez au maximum 500 correspondances d’estimation.",
     "Select each upstream model and group only once.": "Sélectionnez chaque combinaison de modèle et groupe amont une seule fois.",
     "Use exact non-empty model and group names within the supported UTF-8 limits, without surrounding spaces or control characters.": "Utilisez des noms exacts non vides respectant les limites UTF-8, sans espaces de début ou de fin ni caractères de contrôle.",

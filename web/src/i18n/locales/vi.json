@@ -1,5 +1,13 @@
 {
   "translation": {
+    "How to configure the encryption key": "Cách cấu hình khóa mã hóa",
+    "For first-time setup, generate a random 32-byte Base64 key on the server:": "Khi thiết lập lần đầu, hãy tạo khóa ngẫu nhiên 32 byte được mã hóa Base64 trên máy chủ:",
+    "In docker-compose.yml or docker-compose.dev.yml, find the new-api service environment section. Uncomment UPSTREAM_MONITOR_KEY and replace the placeholder with the generated key:": "Trong docker-compose.yml hoặc docker-compose.dev.yml, tìm mục environment của dịch vụ new-api. Bỏ dấu chú thích của UPSTREAM_MONITOR_KEY và thay giá trị giữ chỗ bằng khóa vừa tạo:",
+    "Recreate the backend container to apply the environment variable; restarting the existing container does not load changes:": "Tạo lại container backend để áp dụng biến môi trường; khởi động lại container hiện có sẽ không nạp các thay đổi:",
+    "For docker-compose.dev.yml, use:": "Với docker-compose.dev.yml, dùng:",
+    "Replace new-api in these commands if your backend service has a different name. Refresh this page after the backend starts.": "Thay new-api trong các lệnh này nếu dịch vụ backend của bạn có tên khác. Làm mới trang này sau khi backend khởi động.",
+    "For a direct executable deployment, set UPSTREAM_MONITOR_KEY in the backend environment or in .env in its working directory, then restart the backend.": "Khi triển khai bằng cách chạy trực tiếp tệp thực thi, hãy đặt UPSTREAM_MONITOR_KEY trong môi trường backend hoặc tệp .env ở thư mục làm việc của backend, rồi khởi động lại backend.",
+    "Keep the key backed up separately from the database and use the same key on every backend node. If credentials are already saved, restore the original key instead of generating a replacement.": "Sao lưu khóa riêng biệt với cơ sở dữ liệu và dùng cùng một khóa trên mọi nút backend. Nếu đã lưu thông tin xác thực, hãy khôi phục khóa gốc thay vì tạo khóa thay thế.",
     "Select at most 500 estimate mappings.": "Chọn tối đa 500 ánh xạ ước tính.",
     "Select each upstream model and group only once.": "Chỉ chọn mỗi cặp mô hình và nhóm thượng nguồn một lần.",
     "Use exact non-empty model and group names within the supported UTF-8 limits, without surrounding spaces or control characters.": "Dùng tên mô hình và nhóm chính xác, không rỗng, trong giới hạn UTF-8, không có khoảng trắng đầu cuối hoặc ký tự điều khiển.",
